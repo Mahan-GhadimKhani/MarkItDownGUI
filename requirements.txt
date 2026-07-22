@@ -1,0 +1,13 @@
+markitdown>=0.1.6
+pdfminer.six>=20260107
+pdfplumber>=0.11.0
+python-docx>=1.1.0
+python-pptx>=1.0.0
+openpyxl>=3.1.0
+customtkinter>=6.0.0
+tkinterdnd2>=0.6.2
+pillow>=10.0.0
+pyinstaller>=6.0.0
+pywin32>=306
+magika>=0.6.1
+pytest>=8.0.0
