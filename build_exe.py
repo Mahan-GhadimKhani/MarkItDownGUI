@@ -63,6 +63,7 @@ def main():
         sys.executable, "-m", "PyInstaller",
         "--noconsole",
         "--onedir",
+        "--noconfirm",
         f"--name=MarkItDown",
         f"--icon={ico_path}",
         "--clean",

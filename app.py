@@ -87,7 +87,7 @@ class MarkItDownGUI(QMainWindow):
 
         self.engine = MarkItDownEngine()
         self.selected_files = []
-        self.current_converted_text = ""
+        self.preview_tab_widgets = []
 
         # Setup Signals
         self.signals = WorkerSignals()
@@ -146,7 +146,7 @@ class MarkItDownGUI(QMainWindow):
             }
             QTabWidget::pane { border: 1px solid #555; background: #252526; }
             QTabBar::tab { 
-                background: #2d2d30; padding: 8px 20px; border: 1px solid #555; 
+                background: #2d2d30; padding: 8px 16px; border: 1px solid #555; 
                 border-bottom: none; color: #aaa;
             }
             QTabBar::tab:selected { background: #3c3c3c; color: #fff; }
@@ -185,7 +185,7 @@ class MarkItDownGUI(QMainWindow):
             }
             QTabWidget::pane { border: 1px solid #ccc; background: #ffffff; }
             QTabBar::tab { 
-                background: #f0f0f0; padding: 8px 20px; border: 1px solid #ccc; 
+                background: #f0f0f0; padding: 8px 16px; border: 1px solid #ccc; 
                 border-bottom: none; color: #333;
             }
             QTabBar::tab:selected { background: #ffffff; color: #000; }
@@ -298,40 +298,9 @@ class MarkItDownGUI(QMainWindow):
         self.tabview = QTabWidget()
         right_layout.addWidget(self.tabview)
 
-        # Tab 1: Live Preview
-        preview_tab = QWidget()
-        preview_layout = QVBoxLayout(preview_tab)
-        self.preview_text = QTextEdit()
-        self.preview_text.setReadOnly(False)
-        self.preview_text.setLineWrapMode(QTextEdit.NoWrap)
-        font_c = self.preview_text.font()
-        font_c.setFamily("Consolas")
-        font_c.setPointSize(10)
-        self.preview_text.setFont(font_c)
-        preview_layout.addWidget(self.preview_text)
-
-        preview_btn_layout = QHBoxLayout()
-        btn_copy = QPushButton("📋 Copy Content")
-        btn_copy.clicked.connect(self.copy_preview_content)
-        preview_btn_layout.addWidget(btn_copy)
-
-        btn_save = QPushButton("💾 Save Output...")
-        btn_save.setObjectName("successBtn")
-        btn_save.clicked.connect(self.save_preview_content)
-        preview_btn_layout.addWidget(btn_save)
-        
-        preview_btn_layout.addStretch()
-        
-        self.info_stats_label = QLabel("0 Characters | 0 Words")
-        self.info_stats_label.setStyleSheet("color: gray;")
-        preview_btn_layout.addWidget(self.info_stats_label)
-        
-        preview_layout.addLayout(preview_btn_layout)
-        self.tabview.addTab(preview_tab, "📄 Live Preview")
-
-        # Tab 2: Queue
-        queue_tab = QWidget()
-        queue_layout = QVBoxLayout(queue_tab)
+        # Queue Tab (Always available)
+        self.queue_tab = QWidget()
+        queue_layout = QVBoxLayout(self.queue_tab)
         
         qheader_layout = QHBoxLayout()
         self.queue_count_label = QLabel("No files selected")
@@ -354,11 +323,99 @@ class MarkItDownGUI(QMainWindow):
         self.scroll_area.setWidget(self.scroll_widget)
         queue_layout.addWidget(self.scroll_area)
         
-        self.tabview.addTab(queue_tab, "📋 Selected Files")
+        # Add default placeholder preview tab
+        self._add_single_preview_tab("Live Preview", "")
+        
+        # Add Queue tab at end
+        self.tabview.addTab(self.queue_tab, "📋 Selected Files")
 
         main_layout.addWidget(right_panel, stretch=6)
-        
         self.update_graphical_file_queue()
+
+    def clear_preview_tabs(self):
+        """Remove all dynamic preview tabs except the Queue tab."""
+        for w in self.preview_tab_widgets:
+            idx = self.tabview.indexOf(w)
+            if idx != -1:
+                self.tabview.removeTab(idx)
+            w.deleteLater()
+        self.preview_tab_widgets.clear()
+
+    def _add_single_preview_tab(self, title_name: str, content: str) -> QWidget:
+        """Create and append a preview tab widget before the Queue tab."""
+        tab_widget = QWidget()
+        layout = QVBoxLayout(tab_widget)
+        
+        text_edit = QTextEdit()
+        text_edit.setReadOnly(False)
+        text_edit.setLineWrapMode(QTextEdit.NoWrap)
+        text_edit.setPlainText(content)
+        font_c = text_edit.font()
+        font_c.setFamily("Consolas")
+        font_c.setPointSize(10)
+        text_edit.setFont(font_c)
+        layout.addWidget(text_edit)
+
+        btn_layout = QHBoxLayout()
+        btn_copy = QPushButton("📋 Copy Content")
+        btn_copy.clicked.connect(lambda: self._copy_tab_content(text_edit))
+        btn_layout.addWidget(btn_copy)
+
+        btn_save = QPushButton("💾 Save Output...")
+        btn_save.setObjectName("successBtn")
+        btn_save.clicked.connect(lambda: self._save_tab_content(text_edit))
+        btn_layout.addWidget(btn_save)
+        
+        btn_layout.addStretch()
+        
+        char_count = len(content)
+        word_count = len(content.split())
+        lbl_stats = QLabel(f"{char_count:,} Characters | {word_count:,} Words")
+        lbl_stats.setStyleSheet("color: gray;")
+        btn_layout.addWidget(lbl_stats)
+        
+        layout.addLayout(btn_layout)
+
+        # Insert tab before Selected Files tab (which is at last index)
+        insert_idx = max(0, self.tabview.count() - 1) if hasattr(self, "queue_tab") and self.tabview.indexOf(self.queue_tab) != -1 else 0
+        self.tabview.insertTab(insert_idx, tab_widget, f"📄 {title_name}")
+        self.preview_tab_widgets.append(tab_widget)
+        return tab_widget
+
+    def _copy_tab_content(self, text_edit: QTextEdit):
+        text = text_edit.toPlainText()
+        if text.strip():
+            clipboard = QApplication.clipboard()
+            clipboard.setText(text)
+            QMessageBox.information(self, "Copied", "Content copied to clipboard!")
+        else:
+            QMessageBox.warning(self, "Empty", "There is no content to copy.")
+
+    def _save_tab_content(self, text_edit: QTextEdit):
+        text = text_edit.toPlainText()
+        if not text.strip():
+            QMessageBox.warning(self, "Empty", "There is no content to save.")
+            return
+
+        fmt = self.get_output_format_code()
+        ext_map = {"md": ("Markdown File (*.md)", ".md"), "txt": ("Text File (*.txt)", ".txt"), "html": ("HTML File (*.html)", ".html")}
+        filter_str, default_ext = ext_map.get(fmt, ("Markdown File (*.md)", ".md"))
+        
+        filepath, _ = QFileDialog.getSaveFileName(
+            self, "Save Converted Document", "",
+            f"{filter_str};;All Files (*.*)"
+        )
+        if filepath:
+            if not filepath.endswith(default_ext) and "." not in os.path.basename(filepath):
+                filepath += default_ext
+                
+            try:
+                with open(filepath, "w", encoding="utf-8") as f:
+                    f.write(text)
+                QMessageBox.information(self, "Saved", f"Saved successfully to:\n{filepath}")
+                self.status_label.setText(f"Saved to: {os.path.basename(filepath)}")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to save file:\n{str(e)}")
 
     def _handle_dropped_files(self, raw_paths):
         valid_files = []
@@ -461,7 +518,6 @@ class MarkItDownGUI(QMainWindow):
             btn_remove = QPushButton("❌")
             btn_remove.setObjectName("dangerBtn")
             btn_remove.setFixedSize(30, 30)
-            # Use default arguments trick for lambda in loop
             btn_remove.clicked.connect(lambda checked=False, fp=file_path: self.remove_single_file(fp))
             item_layout.addWidget(btn_remove)
             
@@ -490,7 +546,6 @@ class MarkItDownGUI(QMainWindow):
         self.status_label.setText("Processing conversion...")
 
         if len(self.selected_files) == 1:
-            # Single file conversion in thread
             file_path = self.selected_files[0]
             threading.Thread(
                 target=self._run_single_thread, 
@@ -498,7 +553,6 @@ class MarkItDownGUI(QMainWindow):
                 daemon=True
             ).start()
         else:
-            # Batch conversion natively asynchronous via converter_engine
             def on_progress(c, t, f, s):
                 self.signals.batch_progress.emit(c, t, f, s)
                 
@@ -525,9 +579,12 @@ class MarkItDownGUI(QMainWindow):
         if success:
             base_name = os.path.splitext(os.path.basename(file_path))[0]
             formatted = self.engine.format_output(result_text, fmt, title=base_name)
-            self.current_converted_text = formatted
-            self.show_preview(formatted)
             
+            # Clear old tabs and add new tab for this file
+            self.clear_preview_tabs()
+            self._add_single_preview_tab(os.path.basename(file_path), formatted)
+            self.tabview.setCurrentIndex(0)
+
             if auto_save:
                 if not out_dir:
                     out_dir = os.path.dirname(file_path)
@@ -542,7 +599,7 @@ class MarkItDownGUI(QMainWindow):
                     QMessageBox.critical(self, "Error Saving File", str(e))
             else:
                 self.status_label.setText("Converted successfully! Output shown in Live Preview.")
-                QMessageBox.information(self, "Conversion Complete", "File converted successfully!\nCheck the 'Live Preview' tab and click 'Save Output...' when ready.")
+                QMessageBox.information(self, "Conversion Complete", "File converted successfully!\nCheck the preview tab and click 'Save Output...' when ready.")
         else:
             self.status_label.setText("Conversion failed!")
             QMessageBox.critical(self, "Conversion Error", result_text)
@@ -557,68 +614,29 @@ class MarkItDownGUI(QMainWindow):
         self.btn_convert.setText("🚀 Start Conversion")
         self.progress_bar.setValue(100)
 
-        success_count = sum(1 for t in tasks if t.status == "Success")
+        success_tasks = [t for t in tasks if t.status == "Success"]
         total = len(tasks)
+        success_count = len(success_tasks)
 
         self.status_label.setText(f"Batch complete: {success_count}/{total} files processed.")
         
-        first_success = next((t for t in tasks if t.status == "Success"), None)
-        if first_success:
-            self.current_converted_text = first_success.result_text
-            self.show_preview(first_success.result_text)
+        # Clear existing tabs and populate a tab for EACH converted file
+        self.clear_preview_tabs()
+        for task in success_tasks:
+            fname = os.path.basename(task.file_path)
+            self._add_single_preview_tab(fname, task.result_text)
+
+        if success_tasks:
+            self.tabview.setCurrentIndex(0)
 
         QMessageBox.information(
             self, "Batch Conversion Complete", 
-            f"Successfully processed {success_count} out of {total} files.\nPreview of the first document is displayed on the right."
+            f"Successfully processed {success_count} out of {total} files.\nEach document has been opened in its own Live Preview tab on the right."
         )
-
-    def show_preview(self, text: str):
-        self.tabview.setCurrentIndex(0)
-        self.preview_text.setPlainText(text)
-
-        char_count = len(text)
-        word_count = len(text.split())
-        self.info_stats_label.setText(f"{char_count:,} Characters | {word_count:,} Words")
-
-    def copy_preview_content(self):
-        text = self.preview_text.toPlainText()
-        if text.strip():
-            clipboard = QApplication.clipboard()
-            clipboard.setText(text)
-            QMessageBox.information(self, "Copied", "Converted content copied to clipboard!")
-        else:
-            QMessageBox.warning(self, "Empty", "There is no content to copy.")
-
-    def save_preview_content(self):
-        text = self.preview_text.toPlainText()
-        if not text.strip():
-            QMessageBox.warning(self, "Empty", "There is no content to save.")
-            return
-
-        fmt = self.get_output_format_code()
-        ext_map = {"md": ("Markdown File (*.md)", ".md"), "txt": ("Text File (*.txt)", ".txt"), "html": ("HTML File (*.html)", ".html")}
-        filter_str, default_ext = ext_map.get(fmt, ("Markdown File (*.md)", ".md"))
-        
-        filepath, _ = QFileDialog.getSaveFileName(
-            self, "Save Converted Document", "",
-            f"{filter_str};;All Files (*.*)"
-        )
-        if filepath:
-            if not filepath.endswith(default_ext) and "." not in os.path.basename(filepath):
-                filepath += default_ext
-                
-            try:
-                with open(filepath, "w", encoding="utf-8") as f:
-                    f.write(text)
-                QMessageBox.information(self, "Saved", f"Saved successfully to:\n{filepath}")
-                self.status_label.setText(f"Saved to: {os.path.basename(filepath)}")
-            except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to save file:\n{str(e)}")
 
 def main():
     app = QApplication(sys.argv)
     
-    # Modern font
     font = app.font()
     font.setPointSize(10)
     app.setFont(font)
