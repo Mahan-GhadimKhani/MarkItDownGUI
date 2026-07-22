@@ -66,7 +66,7 @@ def main():
         f"--name=MarkItDown",
         f"--icon={ico_path}",
         "--clean",
-        "--collect-all", "customtkinter",
+        "--collect-all", "PySide6",
         "--collect-all", "markitdown",
         "--collect-all", "magika",
         app_script

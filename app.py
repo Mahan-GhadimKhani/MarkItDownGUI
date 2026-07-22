@@ -1,290 +1,368 @@
 import os
 import sys
 import threading
-import customtkinter as ctk
-from tkinter import filedialog, messagebox
+from PySide6.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QGridLayout, QLabel, QPushButton, QComboBox, QCheckBox,
+    QLineEdit, QProgressBar, QTabWidget, QTextEdit, QScrollArea,
+    QFileDialog, QMessageBox, QFrame, QSizePolicy
+)
+from PySide6.QtCore import Qt, Signal, QObject, QThread
+from PySide6.QtGui import QPalette, QColor, QFont, QGuiApplication, QClipboard
 
-# Try importing TkinterDnD2 for drag and drop support
-HAS_DND = False
-try:
-    from tkinterdnd2 import TkinterDnD, DND_FILES
-    HAS_DND = True
-except ImportError:
-    TkinterDnD = None
+from converter_engine import MarkItDownEngine
 
-from converter_engine import MarkItDownEngine, ConversionTask, SUPPORTED_EXTENSIONS
+# --- Threading Signals for UI Updates ---
+class WorkerSignals(QObject):
+    single_done = Signal(str, str, str, bool, bool, str)  # file_path, out_dir, fmt, auto_save, success, result_text
+    batch_progress = Signal(int, int, str, str)  # current, total, filename, status
+    batch_done = Signal(list)  # list of tasks
 
-ctk.set_appearance_mode("Dark")
-ctk.set_default_color_theme("blue")
+# --- Drag & Drop Label Component ---
+class DropZoneLabel(QLabel):
+    files_dropped = Signal(list)
 
-
-class MarkItDownGUI(ctk.CTk):
     def __init__(self):
         super().__init__()
+        self.setAlignment(Qt.AlignCenter)
+        self.setText("📥 DRAG & DROP FILES HERE\n\n(Drop files or folders anywhere in this box)")
+        font = self.font()
+        font.setPointSize(12)
+        font.setBold(True)
+        self.setFont(font)
+        self.setStyleSheet("""
+            QLabel {
+                border: 2px dashed #555;
+                border-radius: 10px;
+                background-color: #2b2b2b;
+                color: #ccc;
+            }
+        """)
+        self.setAcceptDrops(True)
+        self.setMinimumHeight(150)
 
-        if HAS_DND:
-            try:
-                TkinterDnD._require(self)
-            except Exception:
-                pass
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            self.setStyleSheet("""
+                QLabel {
+                    border: 2px dashed #4da6ff;
+                    border-radius: 10px;
+                    background-color: #1e3a5f;
+                    color: #fff;
+                }
+            """)
+            event.accept()
+        else:
+            event.ignore()
 
-        self.title("Microsoft MarkItDown - Desktop GUI")
-        self.geometry("1100x750")
-        self.minsize(950, 650)
+    def dragLeaveEvent(self, event):
+        self._reset_style()
+
+    def dropEvent(self, event):
+        self._reset_style()
+        paths = []
+        for url in event.mimeData().urls():
+            if url.isLocalFile():
+                paths.append(url.toLocalFile())
+        if paths:
+            self.files_dropped.emit(paths)
+
+    def _reset_style(self):
+        self.setStyleSheet("""
+            QLabel {
+                border: 2px dashed #555;
+                border-radius: 10px;
+                background-color: #2b2b2b;
+                color: #ccc;
+            }
+        """)
+
+
+class MarkItDownGUI(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Microsoft MarkItDown - Desktop GUI")
+        self.resize(1100, 750)
+        self.setMinimumSize(950, 650)
 
         self.engine = MarkItDownEngine()
         self.selected_files = []
-        self.output_dir = ""
         self.current_converted_text = ""
 
+        # Setup Signals
+        self.signals = WorkerSignals()
+        self.signals.single_done.connect(self._finish_single)
+        self.signals.batch_progress.connect(self._update_progress_ui)
+        self.signals.batch_done.connect(self._finish_batch)
+
+        self._apply_dark_theme()
         self._build_ui()
-        self._setup_drag_and_drop()
+
+    def _apply_dark_theme(self):
+        self.is_dark = True
+        app = QApplication.instance()
+        palette = QPalette()
+        
+        # Base colors
+        dark_bg = QColor(30, 30, 30)
+        dark_text = QColor(240, 240, 240)
+        
+        palette.setColor(QPalette.Window, dark_bg)
+        palette.setColor(QPalette.WindowText, dark_text)
+        palette.setColor(QPalette.Base, QColor(40, 40, 40))
+        palette.setColor(QPalette.AlternateBase, QColor(45, 45, 45))
+        palette.setColor(QPalette.ToolTipBase, dark_text)
+        palette.setColor(QPalette.ToolTipText, dark_bg)
+        palette.setColor(QPalette.Text, dark_text)
+        palette.setColor(QPalette.Button, QColor(50, 50, 50))
+        palette.setColor(QPalette.ButtonText, dark_text)
+        palette.setColor(QPalette.BrightText, Qt.red)
+        palette.setColor(QPalette.Link, QColor(42, 130, 218))
+        palette.setColor(QPalette.Highlight, QColor(42, 130, 218))
+        palette.setColor(QPalette.HighlightedText, Qt.white)
+        
+        app.setPalette(palette)
+        
+        # General StyleSheet
+        self.setStyleSheet("""
+            QMainWindow { background-color: #1e1e1e; }
+            QFrame { background-color: #252526; border-radius: 8px; }
+            QPushButton { 
+                background-color: #333337; border: 1px solid #555; 
+                padding: 6px; border-radius: 4px; color: #fff;
+            }
+            QPushButton:hover { background-color: #3f3f46; }
+            QPushButton#primaryBtn { 
+                background-color: #007acc; border: none; font-weight: bold; font-size: 14px;
+            }
+            QPushButton#primaryBtn:hover { background-color: #0098ff; }
+            QPushButton#dangerBtn { background-color: #cc3333; border: none; }
+            QPushButton#dangerBtn:hover { background-color: #ff4d4d; }
+            QPushButton#successBtn { background-color: #28a745; border: none; }
+            QPushButton#successBtn:hover { background-color: #34d058; }
+            QLineEdit, QComboBox, QTextEdit { 
+                background-color: #3c3c3c; border: 1px solid #555; 
+                color: #fff; padding: 4px; border-radius: 4px;
+            }
+            QTabWidget::pane { border: 1px solid #555; background: #252526; }
+            QTabBar::tab { 
+                background: #2d2d30; padding: 8px 20px; border: 1px solid #555; 
+                border-bottom: none; color: #aaa;
+            }
+            QTabBar::tab:selected { background: #3c3c3c; color: #fff; }
+            QProgressBar {
+                border: 1px solid #555; border-radius: 4px; text-align: center;
+                background-color: #2b2b2b; color: white;
+            }
+            QProgressBar::chunk { background-color: #007acc; width: 10px; }
+            QLabel#headerLbl { font-size: 18px; font-weight: bold; }
+        """)
+
+    def _apply_light_theme(self):
+        self.is_dark = False
+        app = QApplication.instance()
+        palette = QPalette()
+        app.setPalette(palette)  # Reset to default light
+        self.setStyleSheet("""
+            QMainWindow { background-color: #f0f0f0; }
+            QFrame { background-color: #ffffff; border-radius: 8px; }
+            QPushButton { 
+                background-color: #e0e0e0; border: 1px solid #ccc; 
+                padding: 6px; border-radius: 4px; color: #000;
+            }
+            QPushButton:hover { background-color: #d0d0d0; }
+            QPushButton#primaryBtn { 
+                background-color: #007acc; border: none; color: #fff; font-weight: bold; font-size: 14px;
+            }
+            QPushButton#primaryBtn:hover { background-color: #0098ff; }
+            QPushButton#dangerBtn { background-color: #cc3333; color: white; border: none; }
+            QPushButton#dangerBtn:hover { background-color: #ff4d4d; }
+            QPushButton#successBtn { background-color: #28a745; color: white; border: none; }
+            QPushButton#successBtn:hover { background-color: #34d058; }
+            QLineEdit, QComboBox, QTextEdit { 
+                background-color: #ffffff; border: 1px solid #ccc; 
+                color: #000; padding: 4px; border-radius: 4px;
+            }
+            QTabWidget::pane { border: 1px solid #ccc; background: #ffffff; }
+            QTabBar::tab { 
+                background: #f0f0f0; padding: 8px 20px; border: 1px solid #ccc; 
+                border-bottom: none; color: #333;
+            }
+            QTabBar::tab:selected { background: #ffffff; color: #000; }
+            QProgressBar {
+                border: 1px solid #ccc; border-radius: 4px; text-align: center;
+                background-color: #e0e0e0; color: black;
+            }
+            QProgressBar::chunk { background-color: #007acc; width: 10px; }
+            QLabel#headerLbl { font-size: 18px; font-weight: bold; color: black; }
+        """)
+
+    def toggle_theme(self):
+        if self.is_dark:
+            self._apply_light_theme()
+            self.theme_btn.setText("🌙 Dark Mode")
+        else:
+            self._apply_dark_theme()
+            self.theme_btn.setText("☀️ Light Mode")
 
     def _build_ui(self):
-        # Grid layout: 2 columns (Left: Options, Drop Zone & Action, Right: Preview & Graphical Queue)
-        self.grid_columnconfigure(0, weight=4)
-        self.grid_columnconfigure(1, weight=6)
-        self.grid_rowconfigure(0, weight=1)
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        main_layout = QHBoxLayout(central_widget)
+        main_layout.setContentsMargins(15, 15, 15, 15)
+        main_layout.setSpacing(15)
 
         # ================= LEFT PANEL =================
-        self.left_frame = ctk.CTkFrame(self, corner_radius=12)
-        self.left_frame.grid(row=0, column=0, padx=15, pady=15, sticky="nsew")
+        left_panel = QFrame()
+        left_layout = QVBoxLayout(left_panel)
+        left_layout.setContentsMargins(20, 20, 20, 20)
+        left_layout.setSpacing(12)
 
-        # Top Header Bar with Theme Switcher
-        self.top_header_frame = ctk.CTkFrame(self.left_frame, fg_color="transparent")
-        self.top_header_frame.pack(padx=20, pady=(15, 5), fill="x")
+        # Header Row
+        header_layout = QHBoxLayout()
+        self.header_label = QLabel("MarkItDown Converter")
+        self.header_label.setObjectName("headerLbl")
+        header_layout.addWidget(self.header_label)
+        header_layout.addStretch()
+        self.theme_btn = QPushButton("☀️ Light Mode")
+        self.theme_btn.clicked.connect(self.toggle_theme)
+        header_layout.addWidget(self.theme_btn)
+        left_layout.addLayout(header_layout)
 
-        self.header_label = ctk.CTkLabel(
-            self.top_header_frame, 
-            text="MarkItDown Converter", 
-            font=ctk.CTkFont(size=20, weight="bold")
-        )
-        self.header_label.pack(side="left")
+        sub_header = QLabel("Convert Office, PDF, Audio, Images & HTML to Markdown")
+        sub_header.setStyleSheet("color: gray;")
+        left_layout.addWidget(sub_header)
 
-        # Dark Mode Switcher (Moved to TOP of page)
-        self.theme_switch = ctk.CTkSwitch(
-            self.top_header_frame, 
-            text="Dark", 
-            command=self.toggle_theme,
-            width=60
-        )
-        self.theme_switch.select()
-        self.theme_switch.pack(side="right")
+        # Settings
+        fmt_label = QLabel("Output Format:")
+        font_b = fmt_label.font()
+        font_b.setBold(True)
+        fmt_label.setFont(font_b)
+        left_layout.addWidget(fmt_label)
 
-        self.sub_header = ctk.CTkLabel(
-            self.left_frame,
-            text="Convert Office, PDF, Audio, Images & HTML to Markdown",
-            font=ctk.CTkFont(size=11),
-            text_color="gray"
-        )
-        self.sub_header.pack(padx=20, pady=(0, 10), anchor="w")
+        self.format_combo = QComboBox()
+        self.format_combo.addItems(["Markdown (.md)", "Plain Text (.txt)", "HTML (.html)"])
+        left_layout.addWidget(self.format_combo)
 
-        # Output Format Selector Group (Dropdown / OptionMenu)
-        self.settings_group = ctk.CTkFrame(self.left_frame, corner_radius=10)
-        self.settings_group.pack(padx=20, pady=10, fill="x")
+        self.auto_save_check = QCheckBox("Auto-save converted files to output directory")
+        left_layout.addWidget(self.auto_save_check)
 
-        self.fmt_label = ctk.CTkLabel(
-            self.settings_group, 
-            text="Output Format:", 
-            font=ctk.CTkFont(size=13, weight="bold")
-        )
-        self.fmt_label.pack(anchor="w", padx=15, pady=(10, 2))
+        dest_layout = QHBoxLayout()
+        self.dest_entry = QLineEdit()
+        self.dest_entry.setPlaceholderText("Output Directory (Optional)")
+        dest_layout.addWidget(self.dest_entry)
+        btn_dest_browse = QPushButton("Browse")
+        btn_dest_browse.clicked.connect(self.browse_output_dir)
+        dest_layout.addWidget(btn_dest_browse)
+        left_layout.addLayout(dest_layout)
 
-        self.format_optionmenu = ctk.CTkOptionMenu(
-            self.settings_group,
-            values=["Markdown (.md)", "Plain Text (.txt)", "HTML (.html)"],
-            height=34
-        )
-        self.format_optionmenu.set("Markdown (.md)")
-        self.format_optionmenu.pack(padx=15, pady=(0, 10), fill="x")
+        # File Select Buttons
+        btn_layout = QHBoxLayout()
+        btn_select_files = QPushButton("📁 Select Files")
+        btn_select_files.clicked.connect(self.browse_files)
+        btn_select_folder = QPushButton("📂 Select Folder")
+        btn_select_folder.clicked.connect(self.browse_folder)
+        btn_layout.addWidget(btn_select_files)
+        btn_layout.addWidget(btn_select_folder)
+        left_layout.addLayout(btn_layout)
 
-        # Auto-Save Checkbox (Optional Saving)
-        self.auto_save_var = ctk.BooleanVar(value=False)
-        self.auto_save_checkbox = ctk.CTkCheckBox(
-            self.settings_group,
-            text="Auto-save converted files to output directory",
-            variable=self.auto_save_var,
-            font=ctk.CTkFont(size=12)
-        )
-        self.auto_save_checkbox.pack(anchor="w", padx=15, pady=(0, 10))
+        # Drag & Drop Zone
+        self.drop_zone = DropZoneLabel()
+        self.drop_zone.files_dropped.connect(self._handle_dropped_files)
+        left_layout.addWidget(self.drop_zone, stretch=1)
 
-        # Destination Directory Frame
-        self.dest_frame = ctk.CTkFrame(self.settings_group, fg_color="transparent")
-        self.dest_frame.pack(padx=15, pady=(0, 10), fill="x")
+        # Convert Button
+        self.btn_convert = QPushButton("🚀 Start Conversion")
+        self.btn_convert.setObjectName("primaryBtn")
+        self.btn_convert.setMinimumHeight(45)
+        self.btn_convert.clicked.connect(self.start_conversion)
+        left_layout.addWidget(self.btn_convert)
 
-        self.dest_entry = ctk.CTkEntry(
-            self.dest_frame, 
-            placeholder_text="Output Directory (Optional)",
-            height=32
-        )
-        self.dest_entry.pack(side="left", expand=True, fill="x", padx=(0, 5))
+        # Progress
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setValue(0)
+        left_layout.addWidget(self.progress_bar)
+        
+        self.status_label = QLabel("Ready")
+        self.status_label.setAlignment(Qt.AlignCenter)
+        self.status_label.setStyleSheet("color: gray;")
+        left_layout.addWidget(self.status_label)
 
-        self.btn_dest_browse = ctk.CTkButton(
-            self.dest_frame, 
-            text="Browse", 
-            width=70, 
-            height=32,
-            command=self.browse_output_dir
-        )
-        self.btn_dest_browse.pack(side="right")
-
-        # File Selection Buttons
-        self.btn_frame = ctk.CTkFrame(self.left_frame, fg_color="transparent")
-        self.btn_frame.pack(padx=20, pady=5, fill="x")
-
-        self.btn_select_files = ctk.CTkButton(
-            self.btn_frame,
-            text="📁 Select Files",
-            command=self.browse_files,
-            height=36
-        )
-        self.btn_select_files.pack(side="left", expand=True, fill="x", padx=(0, 5))
-
-        self.btn_select_folder = ctk.CTkButton(
-            self.btn_frame,
-            text="📂 Select Folder",
-            command=self.browse_folder,
-            fg_color=("gray60", "gray40"),
-            hover_color=("gray50", "gray30"),
-            height=36
-        )
-        self.btn_select_folder.pack(side="right", expand=True, fill="x", padx=(5, 0))
-
-        # Larger Drag & Drop Placeholder Frame (Positioned lower, right above Convert)
-        self.drop_frame = ctk.CTkFrame(
-            self.left_frame, 
-            fg_color=("gray85", "gray20"),
-            border_width=2,
-            border_color=("gray70", "gray35"),
-            corner_radius=12
-        )
-        self.drop_frame.pack(padx=20, pady=(15, 10), fill="both", expand=True)
-
-        self.drop_label = ctk.CTkLabel(
-            self.drop_frame,
-            text="📥 DRAG & DROP FILES HERE\n\n(Drop files/folders anywhere in this box)",
-            font=ctk.CTkFont(size=14, weight="bold"),
-            justify="center"
-        )
-        self.drop_label.pack(fill="both", expand=True, padx=20, pady=20)
-
-        # Action Convert Button (Positioned at bottom)
-        self.btn_convert = ctk.CTkButton(
-            self.left_frame,
-            text="🚀 Start Conversion",
-            font=ctk.CTkFont(size=16, weight="bold"),
-            height=48,
-            fg_color="#1f6aa5",
-            hover_color="#144870",
-            command=self.start_conversion
-        )
-        self.btn_convert.pack(padx=20, pady=(5, 10), fill="x")
-
-        # Progress Bar & Status
-        self.progress_bar = ctk.CTkProgressBar(self.left_frame)
-        self.progress_bar.pack(padx=20, pady=(0, 5), fill="x")
-        self.progress_bar.set(0)
-
-        self.status_label = ctk.CTkLabel(
-            self.left_frame, 
-            text="Ready", 
-            font=ctk.CTkFont(size=12),
-            text_color="gray"
-        )
-        self.status_label.pack(padx=20, pady=(0, 15))
+        main_layout.addWidget(left_panel, stretch=4)
 
         # ================= RIGHT PANEL =================
-        self.right_frame = ctk.CTkFrame(self, corner_radius=12)
-        self.right_frame.grid(row=0, column=1, padx=(0, 15), pady=15, sticky="nsew")
+        right_panel = QFrame()
+        right_layout = QVBoxLayout(right_panel)
+        right_layout.setContentsMargins(10, 10, 10, 10)
+        
+        self.tabview = QTabWidget()
+        right_layout.addWidget(self.tabview)
 
-        # Tabview for Live Preview and Graphical Queue List
-        self.tabview = ctk.CTkTabview(self.right_frame)
-        self.tabview.pack(fill="both", expand=True, padx=10, pady=10)
+        # Tab 1: Live Preview
+        preview_tab = QWidget()
+        preview_layout = QVBoxLayout(preview_tab)
+        self.preview_text = QTextEdit()
+        self.preview_text.setReadOnly(False)
+        self.preview_text.setLineWrapMode(QTextEdit.NoWrap)
+        font_c = self.preview_text.font()
+        font_c.setFamily("Consolas")
+        font_c.setPointSize(10)
+        self.preview_text.setFont(font_c)
+        preview_layout.addWidget(self.preview_text)
 
-        self.tab_preview = self.tabview.add("📄 Live Preview")
-        self.tab_queue = self.tabview.add("📋 Selected Files")
+        preview_btn_layout = QHBoxLayout()
+        btn_copy = QPushButton("📋 Copy Content")
+        btn_copy.clicked.connect(self.copy_preview_content)
+        preview_btn_layout.addWidget(btn_copy)
 
-        # Tab 1: Preview Text Box
-        self.preview_textbox = ctk.CTkTextbox(
-            self.tab_preview, 
-            font=ctk.CTkFont(family="Consolas", size=13),
-            wrap="none"
-        )
-        self.preview_textbox.pack(fill="both", expand=True, padx=5, pady=5)
+        btn_save = QPushButton("💾 Save Output...")
+        btn_save.setObjectName("successBtn")
+        btn_save.clicked.connect(self.save_preview_content)
+        preview_btn_layout.addWidget(btn_save)
+        
+        preview_btn_layout.addStretch()
+        
+        self.info_stats_label = QLabel("0 Characters | 0 Words")
+        self.info_stats_label.setStyleSheet("color: gray;")
+        preview_btn_layout.addWidget(self.info_stats_label)
+        
+        preview_layout.addLayout(preview_btn_layout)
+        self.tabview.addTab(preview_tab, "📄 Live Preview")
 
-        # Action Buttons below Preview (Save As is optional!)
-        self.preview_btn_frame = ctk.CTkFrame(self.tab_preview, fg_color="transparent")
-        self.preview_btn_frame.pack(fill="x", padx=5, pady=(5, 0))
+        # Tab 2: Queue
+        queue_tab = QWidget()
+        queue_layout = QVBoxLayout(queue_tab)
+        
+        qheader_layout = QHBoxLayout()
+        self.queue_count_label = QLabel("No files selected")
+        font_b2 = self.queue_count_label.font()
+        font_b2.setBold(True)
+        self.queue_count_label.setFont(font_b2)
+        qheader_layout.addWidget(self.queue_count_label)
+        qheader_layout.addStretch()
+        btn_clear = QPushButton("🗑️ Clear All")
+        btn_clear.setObjectName("dangerBtn")
+        btn_clear.clicked.connect(self.clear_all_files)
+        qheader_layout.addWidget(btn_clear)
+        queue_layout.addLayout(qheader_layout)
 
-        self.btn_copy = ctk.CTkButton(
-            self.preview_btn_frame,
-            text="📋 Copy Content",
-            width=120,
-            command=self.copy_preview_content
-        )
-        self.btn_copy.pack(side="left", padx=5)
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_widget = QWidget()
+        self.scroll_layout = QVBoxLayout(self.scroll_widget)
+        self.scroll_layout.setAlignment(Qt.AlignTop)
+        self.scroll_area.setWidget(self.scroll_widget)
+        queue_layout.addWidget(self.scroll_area)
+        
+        self.tabview.addTab(queue_tab, "📋 Selected Files")
 
-        self.btn_save_as = ctk.CTkButton(
-            self.preview_btn_frame,
-            text="💾 Save Output...",
-            width=120,
-            fg_color="#27ae60",
-            hover_color="#1e8449",
-            command=self.save_preview_content
-        )
-        self.btn_save_as.pack(side="left", padx=5)
+        main_layout.addWidget(right_panel, stretch=6)
+        
+        self.update_graphical_file_queue()
 
-        self.info_stats_label = ctk.CTkLabel(
-            self.preview_btn_frame,
-            text="0 Characters | 0 Words",
-            text_color="gray",
-            font=ctk.CTkFont(size=11)
-        )
-        self.info_stats_label.pack(side="right", padx=10)
-
-        # Tab 2: Graphical File List (Scrollable Frame with Remove Buttons)
-        self.queue_header_frame = ctk.CTkFrame(self.tab_queue, fg_color="transparent")
-        self.queue_header_frame.pack(fill="x", padx=5, pady=5)
-
-        self.queue_count_label = ctk.CTkLabel(
-            self.queue_header_frame,
-            text="No files selected",
-            font=ctk.CTkFont(size=13, weight="bold")
-        )
-        self.queue_count_label.pack(side="left", padx=5)
-
-        self.btn_clear_all = ctk.CTkButton(
-            self.queue_header_frame,
-            text="🗑️ Clear All",
-            width=90,
-            height=28,
-            fg_color="#c0392b",
-            hover_color="#962d22",
-            command=self.clear_all_files
-        )
-        self.btn_clear_all.pack(side="right", padx=5)
-
-        self.queue_scrollable_frame = ctk.CTkScrollableFrame(
-            self.tab_queue,
-            label_text="Queued Files (Click ❌ to remove individual files)"
-        )
-        self.queue_scrollable_frame.pack(fill="both", expand=True, padx=5, pady=5)
-
-    def _setup_drag_and_drop(self):
-        if HAS_DND:
-            try:
-                self.drop_frame.drop_target_register(DND_FILES)
-                self.drop_frame.dnd_bind('<<Drop>>', self._on_drop_files)
-                self.drop_label.drop_target_register(DND_FILES)
-                self.drop_label.dnd_bind('<<Drop>>', self._on_drop_files)
-            except Exception as e:
-                print("Drag & Drop initialization note:", e)
-
-    def _on_drop_files(self, event):
-        files_str = event.data
-        raw_files = self.split_dnd_paths(files_str)
+    def _handle_dropped_files(self, raw_paths):
         valid_files = []
-        for path in raw_files:
+        for path in raw_paths:
             if os.path.isfile(path):
                 if self.engine.is_supported(path):
                     valid_files.append(path)
@@ -301,25 +379,11 @@ class MarkItDownGUI(ctk.CTk):
                     self.selected_files.append(vf)
             self.update_graphical_file_queue()
 
-    @staticmethod
-    def split_dnd_paths(data_str: str):
-        if not data_str or not isinstance(data_str, str):
-            return []
-        import re
-        paths = re.findall(r'\{[^}]+\}|[^\s]+', data_str)
-        cleaned = [p.strip('{}').strip() for p in paths]
-        return [p for p in cleaned if p]
-
     def browse_files(self):
-        filetypes = [
-            ("All Supported Files", "*.docx *.pptx *.xlsx *.xls *.pdf *.html *.xml *.json *.csv *.zip *.txt *.mp3 *.wav *.png *.jpg *.jpeg"),
-            ("Office Documents", "*.docx *.pptx *.xlsx *.xls"),
-            ("PDF Files", "*.pdf"),
-            ("Audio Files", "*.mp3 *.wav *.m4a"),
-            ("Images", "*.png *.jpg *.jpeg"),
-            ("All Files", "*.*")
-        ]
-        files = filedialog.askopenfilenames(title="Select Files to Convert", filetypes=filetypes)
+        files, _ = QFileDialog.getOpenFileNames(
+            self, "Select Files to Convert", "",
+            "All Supported Files (*.docx *.pptx *.xlsx *.xls *.pdf *.html *.xml *.json *.csv *.zip *.txt *.mp3 *.wav *.png *.jpg *.jpeg);;All Files (*.*)"
+        )
         if files:
             for f in files:
                 if f not in self.selected_files:
@@ -327,7 +391,7 @@ class MarkItDownGUI(ctk.CTk):
             self.update_graphical_file_queue()
 
     def browse_folder(self):
-        folder = filedialog.askdirectory(title="Select Folder to Convert")
+        folder = QFileDialog.getExistingDirectory(self, "Select Folder to Convert")
         if folder:
             found_files = []
             for root, _, files in os.walk(folder):
@@ -341,80 +405,70 @@ class MarkItDownGUI(ctk.CTk):
                         self.selected_files.append(ff)
                 self.update_graphical_file_queue()
             else:
-                messagebox.showinfo("No Supported Files", "No supported files were found in the selected folder.")
+                QMessageBox.information(self, "No Supported Files", "No supported files were found in the selected folder.")
 
     def browse_output_dir(self):
-        folder = filedialog.askdirectory(title="Select Output Directory")
+        folder = QFileDialog.getExistingDirectory(self, "Select Output Directory")
         if folder:
-            self.output_dir = folder
-            self.dest_entry.delete(0, "end")
-            self.dest_entry.insert(0, folder)
+            self.dest_entry.setText(folder)
 
     def remove_single_file(self, file_path: str):
-        """Remove an individual file from the graphical file queue."""
         if file_path in self.selected_files:
             self.selected_files.remove(file_path)
             self.update_graphical_file_queue()
 
     def clear_all_files(self):
-        """Clear all selected files from queue."""
         self.selected_files.clear()
         self.update_graphical_file_queue()
 
     def update_graphical_file_queue(self):
-        """Render graphical cards for each file in the scrollable queue frame."""
-        for widget in self.queue_scrollable_frame.winfo_children():
-            widget.destroy()
+        # Clear layout
+        while self.scroll_layout.count():
+            item = self.scroll_layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
 
         count = len(self.selected_files)
         if count == 0:
-            self.drop_label.configure(
-                text="📥 DRAG & DROP FILES HERE\n\n(Drop files/folders anywhere in this box)"
-            )
-            self.queue_count_label.configure(text="No files selected")
-            empty_lbl = ctk.CTkLabel(
-                self.queue_scrollable_frame, 
-                text="No files added yet. Drag and drop or click 'Select Files'.",
-                text_color="gray"
-            )
-            empty_lbl.pack(pady=30)
+            self.drop_zone.setText("📥 DRAG & DROP FILES HERE\n\n(Drop files or folders anywhere in this box)")
+            self.queue_count_label.setText("No files selected")
+            empty_lbl = QLabel("No files added yet. Drag and drop or click 'Select Files'.")
+            empty_lbl.setStyleSheet("color: gray;")
+            empty_lbl.setAlignment(Qt.AlignCenter)
+            self.scroll_layout.addWidget(empty_lbl)
             return
 
-        self.drop_label.configure(
-            text=f"✅ {count} File(s) Selected\n\nDrag more files here or click Start Conversion"
-        )
-        self.queue_count_label.configure(text=f"Files in Queue: {count}")
+        self.drop_zone.setText(f"✅ {count} File(s) Selected\n\nDrag more files here or click Start Conversion")
+        self.queue_count_label.setText(f"Files in Queue: {count}")
 
         for idx, file_path in enumerate(self.selected_files, start=1):
-            item_frame = ctk.CTkFrame(self.queue_scrollable_frame, corner_radius=8)
-            item_frame.pack(fill="x", padx=5, pady=4)
-
-            # Icon & Filename
+            item_frame = QFrame()
+            item_frame.setStyleSheet("QFrame { border: 1px solid #555; background-color: transparent; }")
+            item_layout = QHBoxLayout(item_frame)
+            item_layout.setContentsMargins(10, 5, 10, 5)
+            
             fname = os.path.basename(file_path)
             ext = os.path.splitext(fname)[1].upper()
             
-            lbl_name = ctk.CTkLabel(
-                item_frame, 
-                text=f"{idx}. [{ext}] {fname}",
-                font=ctk.CTkFont(size=12, weight="bold"),
-                anchor="w"
-            )
-            lbl_name.pack(side="left", padx=10, pady=8, expand=True, fill="x")
+            lbl_name = QLabel(f"{idx}. [{ext}] {fname}")
+            font = lbl_name.font()
+            font.setBold(True)
+            lbl_name.setFont(font)
+            lbl_name.setStyleSheet("border: none;")
+            item_layout.addWidget(lbl_name, stretch=1)
 
-            # Remove Button for each file
-            btn_remove = ctk.CTkButton(
-                item_frame,
-                text="❌",
-                width=32,
-                height=28,
-                fg_color="#c0392b",
-                hover_color="#962d22",
-                command=lambda fp=file_path: self.remove_single_file(fp)
-            )
-            btn_remove.pack(side="right", padx=8, pady=4)
+            btn_remove = QPushButton("❌")
+            btn_remove.setObjectName("dangerBtn")
+            btn_remove.setFixedSize(30, 30)
+            # Use default arguments trick for lambda in loop
+            btn_remove.clicked.connect(lambda checked=False, fp=file_path: self.remove_single_file(fp))
+            item_layout.addWidget(btn_remove)
+            
+            self.scroll_layout.addWidget(item_frame)
 
     def get_output_format_code(self):
-        val = self.format_optionmenu.get()
+        val = self.format_combo.currentText()
         if "Text" in val:
             return "txt"
         elif "HTML" in val:
@@ -423,46 +477,55 @@ class MarkItDownGUI(ctk.CTk):
 
     def start_conversion(self):
         if not self.selected_files:
-            messagebox.showwarning("No Files Selected", "Please select or drop at least one supported file first.")
+            QMessageBox.warning(self, "No Files Selected", "Please select or drop at least one supported file first.")
             return
 
-        out_dir = self.dest_entry.get().strip()
-        auto_save = self.auto_save_var.get()
+        out_dir = self.dest_entry.text().strip()
+        auto_save = self.auto_save_check.isChecked()
         fmt = self.get_output_format_code()
 
-        self.btn_convert.configure(state="disabled", text="⏳ Converting...")
-        self.progress_bar.set(0)
-        self.status_label.configure(text="Processing conversion...")
+        self.btn_convert.setEnabled(False)
+        self.btn_convert.setText("⏳ Converting...")
+        self.progress_bar.setValue(0)
+        self.status_label.setText("Processing conversion...")
 
         if len(self.selected_files) == 1:
+            # Single file conversion in thread
+            file_path = self.selected_files[0]
             threading.Thread(
-                target=self._convert_single, 
-                args=(self.selected_files[0], out_dir, fmt, auto_save), 
+                target=self._run_single_thread, 
+                args=(file_path, out_dir, fmt, auto_save), 
                 daemon=True
             ).start()
         else:
+            # Batch conversion natively asynchronous via converter_engine
+            def on_progress(c, t, f, s):
+                self.signals.batch_progress.emit(c, t, f, s)
+                
+            def on_complete(tasks):
+                self.signals.batch_done.emit(tasks)
+                
             self.engine.convert_batch_async(
                 file_paths=self.selected_files,
                 output_dir=out_dir if out_dir else os.path.dirname(self.selected_files[0]),
                 output_format=fmt,
-                on_progress=self._on_batch_progress,
-                on_complete=self._on_batch_complete
+                on_progress=on_progress,
+                on_complete=on_complete
             )
 
-    def _convert_single(self, file_path: str, out_dir: str, fmt: str, auto_save: bool):
+    def _run_single_thread(self, file_path, out_dir, fmt, auto_save):
         success, result_text = self.engine.convert_single_file(file_path)
-        self.after(0, self._finish_single, file_path, out_dir, fmt, auto_save, success, result_text)
+        self.signals.single_done.emit(file_path, out_dir, fmt, auto_save, success, result_text)
 
-    def _finish_single(self, file_path: str, out_dir: str, fmt: str, auto_save: bool, success: bool, result_text: str):
-        self.btn_convert.configure(state="normal", text="🚀 Start Conversion")
-        self.progress_bar.set(1.0)
+    def _finish_single(self, file_path, out_dir, fmt, auto_save, success, result_text):
+        self.btn_convert.setEnabled(True)
+        self.btn_convert.setText("🚀 Start Conversion")
+        self.progress_bar.setValue(100)
 
         if success:
             base_name = os.path.splitext(os.path.basename(file_path))[0]
             formatted = self.engine.format_output(result_text, fmt, title=base_name)
             self.current_converted_text = formatted
-            
-            # Show Live Preview
             self.show_preview(formatted)
             
             if auto_save:
@@ -473,101 +536,96 @@ class MarkItDownGUI(ctk.CTk):
                 try:
                     with open(out_path, "w", encoding="utf-8") as f:
                         f.write(formatted)
-                    self.status_label.configure(text=f"Converted & saved to: {os.path.basename(out_path)}")
-                    messagebox.showinfo("Success", f"Conversion completed!\nFile saved to:\n{out_path}")
+                    self.status_label.setText(f"Converted & saved to: {os.path.basename(out_path)}")
+                    QMessageBox.information(self, "Success", f"Conversion completed!\nFile saved to:\n{out_path}")
                 except Exception as e:
-                    messagebox.showerror("Error Saving File", str(e))
+                    QMessageBox.critical(self, "Error Saving File", str(e))
             else:
-                self.status_label.configure(text="Converted successfully! Output shown in Live Preview. Click 'Save Output...' to save.")
-                messagebox.showinfo("Conversion Complete", "File converted successfully!\nCheck the 'Live Preview' tab and click 'Save Output...' whenever you are ready to save.")
+                self.status_label.setText("Converted successfully! Output shown in Live Preview.")
+                QMessageBox.information(self, "Conversion Complete", "File converted successfully!\nCheck the 'Live Preview' tab and click 'Save Output...' when ready.")
         else:
-            self.status_label.configure(text="Conversion failed!")
-            messagebox.showerror("Conversion Error", result_text)
+            self.status_label.setText("Conversion failed!")
+            QMessageBox.critical(self, "Conversion Error", result_text)
 
-    def _on_batch_progress(self, current: int, total: int, filename: str, status: str):
-        fraction = current / total
-        self.after(0, self._update_progress_ui, fraction, f"[{current}/{total}] {filename} ({status})")
-
-    def _update_progress_ui(self, fraction: float, status_text: str):
-        self.progress_bar.set(fraction)
-        self.status_label.configure(text=status_text)
-
-    def _on_batch_complete(self, tasks):
-        self.after(0, self._finish_batch, tasks)
+    def _update_progress_ui(self, current, total, filename, status):
+        fraction = int((current / total) * 100)
+        self.progress_bar.setValue(fraction)
+        self.status_label.setText(f"[{current}/{total}] {filename} ({status})")
 
     def _finish_batch(self, tasks):
-        self.btn_convert.configure(state="normal", text="🚀 Start Conversion")
-        self.progress_bar.set(1.0)
+        self.btn_convert.setEnabled(True)
+        self.btn_convert.setText("🚀 Start Conversion")
+        self.progress_bar.setValue(100)
 
         success_count = sum(1 for t in tasks if t.status == "Success")
         total = len(tasks)
 
-        self.status_label.configure(text=f"Batch complete: {success_count}/{total} files processed.")
+        self.status_label.setText(f"Batch complete: {success_count}/{total} files processed.")
         
-        # Show first success preview
         first_success = next((t for t in tasks if t.status == "Success"), None)
         if first_success:
             self.current_converted_text = first_success.result_text
             self.show_preview(first_success.result_text)
 
-        messagebox.showinfo(
-            "Batch Conversion Complete", 
+        QMessageBox.information(
+            self, "Batch Conversion Complete", 
             f"Successfully processed {success_count} out of {total} files.\nPreview of the first document is displayed on the right."
         )
 
     def show_preview(self, text: str):
-        self.tabview.set("📄 Live Preview")
-        self.preview_textbox.delete("1.0", "end")
-        self.preview_textbox.insert("1.0", text)
+        self.tabview.setCurrentIndex(0)
+        self.preview_text.setPlainText(text)
 
         char_count = len(text)
         word_count = len(text.split())
-        self.info_stats_label.configure(text=f"{char_count:,} Characters | {word_count:,} Words")
+        self.info_stats_label.setText(f"{char_count:,} Characters | {word_count:,} Words")
 
     def copy_preview_content(self):
-        text = self.preview_textbox.get("1.0", "end-1c")
+        text = self.preview_text.toPlainText()
         if text.strip():
-            self.clipboard_clear()
-            self.clipboard_append(text)
-            messagebox.showinfo("Copied", "Converted content copied to clipboard!")
+            clipboard = QApplication.clipboard()
+            clipboard.setText(text)
+            QMessageBox.information(self, "Copied", "Converted content copied to clipboard!")
         else:
-            messagebox.showwarning("Empty", "There is no content to copy.")
+            QMessageBox.warning(self, "Empty", "There is no content to copy.")
 
     def save_preview_content(self):
-        text = self.preview_textbox.get("1.0", "end-1c")
+        text = self.preview_text.toPlainText()
         if not text.strip():
-            messagebox.showwarning("Empty", "There is no content to save.")
+            QMessageBox.warning(self, "Empty", "There is no content to save.")
             return
 
         fmt = self.get_output_format_code()
-        ext_map = {"md": ("Markdown File", "*.md"), "txt": ("Text File", "*.txt"), "html": ("HTML File", "*.html")}
-        default_ext = f".{fmt}"
+        ext_map = {"md": ("Markdown File (*.md)", ".md"), "txt": ("Text File (*.txt)", ".txt"), "html": ("HTML File (*.html)", ".html")}
+        filter_str, default_ext = ext_map.get(fmt, ("Markdown File (*.md)", ".md"))
         
-        filepath = filedialog.asksaveasfilename(
-            title="Save Converted Document",
-            defaultextension=default_ext,
-            filetypes=[ext_map.get(fmt, ("Markdown File", "*.md")), ("All Files", "*.*")]
+        filepath, _ = QFileDialog.getSaveFileName(
+            self, "Save Converted Document", "",
+            f"{filter_str};;All Files (*.*)"
         )
         if filepath:
+            if not filepath.endswith(default_ext) and "." not in os.path.basename(filepath):
+                filepath += default_ext
+                
             try:
                 with open(filepath, "w", encoding="utf-8") as f:
                     f.write(text)
-                messagebox.showinfo("Saved", f"Saved successfully to:\n{filepath}")
-                self.status_label.configure(text=f"Saved to: {os.path.basename(filepath)}")
+                QMessageBox.information(self, "Saved", f"Saved successfully to:\n{filepath}")
+                self.status_label.setText(f"Saved to: {os.path.basename(filepath)}")
             except Exception as e:
-                messagebox.showerror("Error", f"Failed to save file:\n{str(e)}")
-
-    def toggle_theme(self):
-        if self.theme_switch.get() == 1:
-            ctk.set_appearance_mode("Dark")
-        else:
-            ctk.set_appearance_mode("Light")
-
+                QMessageBox.critical(self, "Error", f"Failed to save file:\n{str(e)}")
 
 def main():
-    app = MarkItDownGUI()
-    app.mainloop()
-
+    app = QApplication(sys.argv)
+    
+    # Modern font
+    font = app.font()
+    font.setPointSize(10)
+    app.setFont(font)
+    
+    window = MarkItDownGUI()
+    window.show()
+    sys.exit(app.exec())
 
 if __name__ == "__main__":
     main()
