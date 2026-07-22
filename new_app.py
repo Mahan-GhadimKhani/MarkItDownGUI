@@ -13,32 +13,6 @@ from PySide6.QtGui import QPalette, QColor, QFont, QGuiApplication, QClipboard, 
 
 from converter_engine import MarkItDownEngine
 
-SVG_ICONS = {
-    "sun": '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M17.36 17.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M17.36 6.64l1.42-1.42"/></svg>',
-    "moon": '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>',
-    "chevron-down": '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
-    "plus": '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>',
-    "file-plus": '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>',
-    "folder-plus": '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/><line x1="12" y1="10" x2="12" y2="16"/><line x1="9" y1="13" x2="15" y2="13"/></svg>',
-    "x": '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
-    "arrow-right": '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>',
-    "file-text": '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>',
-    "arrow-up-down": '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg>',
-    "copy": '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>'
-}
-
-from PySide6.QtGui import QIcon, QPixmap
-from PySide6.QtCore import QByteArray
-
-def get_icon(name, color_hex):
-    svg_str = SVG_ICONS.get(name, "")
-    if not svg_str:
-        return QIcon()
-    svg_str = svg_str.replace("currentColor", color_hex)
-    pixmap = QPixmap()
-    pixmap.loadFromData(QByteArray(svg_str.encode('utf-8')), "SVG")
-    return QIcon(pixmap)
-
 class WorkerSignals(QObject):
     single_done = Signal(str, str, str, bool, bool, str)
     batch_progress = Signal(int, int, str, str)
@@ -172,8 +146,7 @@ class QueueDropZoneWidget(QFrame):
                     lbl.setStyleSheet("color: #ccc; font-size: 13px;") 
                 
                 # Delete btn
-                btn_del = QPushButton()
-                btn_del.setIcon(get_icon("x", "#666"))
+                btn_del = QPushButton("✕")
                 btn_del.setFixedSize(20, 20)
                 btn_del.setCursor(Qt.PointingHandCursor)
                 btn_del.setStyleSheet("""
@@ -291,19 +264,7 @@ class MarkItDownGUI(QMainWindow):
             }
             QPushButton#iconBtn:hover { background-color: #252525; }
         """)
-        
-        self.theme_btn.setIcon(get_icon("sun", "#ccc"))
-        self.btn_dest_browse.setIcon(get_icon("plus", "#ccc"))
-        self.btn_select_files.setIcon(get_icon("file-plus", "#ccc"))
-        self.btn_select_folder.setIcon(get_icon("folder-plus", "#ccc"))
-        self.btn_convert.setIcon(get_icon("arrow-right", "#111"))
-        self.btn_copy.setIcon(get_icon("copy", "#888"))
-        
-        if hasattr(self, 'icon_lbl'):
-            self.icon_lbl.setPixmap(get_icon("arrow-up-down", "#444").pixmap(40, 40))
-
-        if hasattr(self, 'drop_zone'):
-            self.drop_zone.update_list(self.selected_files, self.converted_success_files)
+        self.drop_zone.update_list(self.selected_files, self.converted_success_files)
 
     def _apply_light_theme(self):
         self.is_dark = False
@@ -355,25 +316,15 @@ class MarkItDownGUI(QMainWindow):
             }
             QPushButton#iconBtn:hover { background-color: #f0f0f0; }
         """)
-        
-        self.theme_btn.setIcon(get_icon("moon", "#333"))
-        self.btn_dest_browse.setIcon(get_icon("plus", "#555"))
-        self.btn_select_files.setIcon(get_icon("file-plus", "#333"))
-        self.btn_select_folder.setIcon(get_icon("folder-plus", "#333"))
-        self.btn_convert.setIcon(get_icon("arrow-right", "#fff"))
-        self.btn_copy.setIcon(get_icon("copy", "#888"))
-
-        if hasattr(self, 'icon_lbl'):
-            self.icon_lbl.setPixmap(get_icon("arrow-up-down", "#999").pixmap(40, 40))
-
-        if hasattr(self, 'drop_zone'):
-            self.drop_zone.update_list(self.selected_files, self.converted_success_files)
+        self.drop_zone.update_list(self.selected_files, self.converted_success_files)
 
     def toggle_theme(self):
         if self.is_dark:
             self._apply_light_theme()
+            self.theme_btn.setText("🌙")
         else:
             self._apply_dark_theme()
+            self.theme_btn.setText("☀️")
 
     def create_section_header(self, text):
         lbl = QLabel(text)
@@ -397,7 +348,7 @@ class MarkItDownGUI(QMainWindow):
         # Window Controls Mock area / Theme Button
         top_ctrl_layout = QHBoxLayout()
         top_ctrl_layout.addStretch()
-        self.theme_btn = QPushButton()
+        self.theme_btn = QPushButton("☀️")
         self.theme_btn.setObjectName("themeBtn")
         self.theme_btn.setCursor(Qt.PointingHandCursor)
         self.theme_btn.clicked.connect(self.toggle_theme)
@@ -426,23 +377,23 @@ class MarkItDownGUI(QMainWindow):
         self.dest_entry = QLineEdit()
         self.dest_entry.setPlaceholderText("Output Directory...")
         dest_layout.addWidget(self.dest_entry)
-        self.btn_dest_browse = QPushButton()
-        self.btn_dest_browse.setObjectName("iconBtn")
-        self.btn_dest_browse.setFixedSize(34, 34)
-        self.btn_dest_browse.clicked.connect(self.browse_output_dir)
-        dest_layout.addWidget(self.btn_dest_browse)
+        btn_dest_browse = QPushButton("+")
+        btn_dest_browse.setObjectName("iconBtn")
+        btn_dest_browse.setFixedSize(34, 34)
+        btn_dest_browse.clicked.connect(self.browse_output_dir)
+        dest_layout.addWidget(btn_dest_browse)
         left_layout.addLayout(dest_layout)
 
         # SOURCE FILES
         left_layout.addWidget(self.create_section_header("SOURCE FILES"))
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(10)
-        self.btn_select_files = QPushButton("Files")
-        self.btn_select_files.clicked.connect(self.browse_files)
-        self.btn_select_folder = QPushButton("Folder")
-        self.btn_select_folder.clicked.connect(self.browse_folder)
-        btn_layout.addWidget(self.btn_select_files)
-        btn_layout.addWidget(self.btn_select_folder)
+        btn_select_files = QPushButton("+ Files")
+        btn_select_files.clicked.connect(self.browse_files)
+        btn_select_folder = QPushButton("+ Folder")
+        btn_select_folder.clicked.connect(self.browse_folder)
+        btn_layout.addWidget(btn_select_files)
+        btn_layout.addWidget(btn_select_folder)
         left_layout.addLayout(btn_layout)
 
         # QUEUE
@@ -472,7 +423,7 @@ class MarkItDownGUI(QMainWindow):
         left_layout.addWidget(self.progress_bar)
 
         # Convert Button
-        self.btn_convert = QPushButton("Start Conversion")
+        self.btn_convert = QPushButton("➔ Start Conversion")
         self.btn_convert.setObjectName("primaryBtn")
         self.btn_convert.setMinimumHeight(45)
         self.btn_convert.setCursor(Qt.PointingHandCursor)
@@ -500,10 +451,9 @@ class MarkItDownGUI(QMainWindow):
         empty_state = QWidget()
         empty_layout = QVBoxLayout(empty_state)
         
-        self.icon_lbl = QLabel()
-        self.icon_lbl.setPixmap(get_icon("arrow-up-down", "#444").pixmap(40, 40))
-        self.icon_lbl.setAlignment(Qt.AlignCenter)
-        self.icon_lbl.setStyleSheet("margin-bottom: 10px;")
+        icon_lbl = QLabel("⇄")
+        icon_lbl.setAlignment(Qt.AlignCenter)
+        icon_lbl.setStyleSheet("font-size: 40px; color: #444; margin-bottom: 10px;")
         
         no_file_lbl = QLabel("No file selected")
         no_file_lbl.setAlignment(Qt.AlignCenter)
@@ -514,7 +464,7 @@ class MarkItDownGUI(QMainWindow):
         sub_no_file_lbl.setStyleSheet("font-size: 12px; color: #666;")
         
         empty_layout.addStretch()
-        empty_layout.addWidget(self.icon_lbl)
+        empty_layout.addWidget(icon_lbl)
         empty_layout.addWidget(no_file_lbl)
         empty_layout.addWidget(sub_no_file_lbl)
         empty_layout.addStretch()
@@ -634,7 +584,7 @@ class MarkItDownGUI(QMainWindow):
             if text.strip():
                 clipboard = QApplication.clipboard()
                 clipboard.setText(text)
-                self.btn_copy.setText("Copied")
+                self.btn_copy.setText("✓ Copied")
                 QTimer = __import__("PySide6.QtCore").QtCore.QTimer
                 QTimer.singleShot(1500, lambda: self.btn_copy.setText("Copy"))
 
@@ -757,7 +707,7 @@ class MarkItDownGUI(QMainWindow):
 
     def _finish_single(self, file_path, out_dir, fmt, auto_save, success, result_text):
         self.btn_convert.setEnabled(True)
-        self.btn_convert.setText("Start Conversion")
+        self.btn_convert.setText("➔ Start Conversion")
         
         self.progress_bar.setValue(100)
         self.progress_bar.hide()
@@ -797,7 +747,7 @@ class MarkItDownGUI(QMainWindow):
 
     def _finish_batch(self, tasks):
         self.btn_convert.setEnabled(True)
-        self.btn_convert.setText("Start Conversion")
+        self.btn_convert.setText("➔ Start Conversion")
         
         self.progress_bar.setValue(100)
         self.progress_bar.hide()
