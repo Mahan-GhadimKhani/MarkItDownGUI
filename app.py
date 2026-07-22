@@ -26,13 +26,6 @@ class DropZoneWidget(QFrame):
         super().__init__(parent)
         self.setAcceptDrops(True)
         self.setObjectName("dropFrame")
-        self.setStyleSheet("""
-            QFrame#dropFrame {
-                border: 2px dashed #555;
-                border-radius: 10px;
-                background-color: #2b2b2b;
-            }
-        """)
         
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 10, 10, 10)
@@ -45,13 +38,11 @@ class DropZoneWidget(QFrame):
         font.setPointSize(11)
         font.setBold(True)
         self.prompt_label.setFont(font)
-        self.prompt_label.setStyleSheet("color: #ccc; border: none; background: transparent;")
         layout.addWidget(self.prompt_label)
 
         # Selected Files Header Bar inside DropZone
         self.files_header_layout = QHBoxLayout()
         self.files_count_lbl = QLabel("No files selected")
-        self.files_count_lbl.setStyleSheet("color: #888; font-weight: bold; border: none; background: transparent;")
         self.files_header_layout.addWidget(self.files_count_lbl)
         self.files_header_layout.addStretch()
 
@@ -78,16 +69,37 @@ class DropZoneWidget(QFrame):
 
         self.file_scroll.setWidget(self.scroll_content)
         layout.addWidget(self.file_scroll)
+        
+        self.update_theme(is_dark=True)
+
+    def update_theme(self, is_dark: bool):
+        self.is_dark = is_dark
+        self._reset_style()
+        if is_dark:
+            self.prompt_label.setStyleSheet("color: #ccc; border: none; background: transparent;")
+            self.files_count_lbl.setStyleSheet("color: #aaa; font-weight: bold; border: none; background: transparent;")
+        else:
+            self.prompt_label.setStyleSheet("color: #444; border: none; background: transparent;")
+            self.files_count_lbl.setStyleSheet("color: #555; font-weight: bold; border: none; background: transparent;")
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
-            self.setStyleSheet("""
-                QFrame#dropFrame {
-                    border: 2px dashed #4da6ff;
-                    border-radius: 10px;
-                    background-color: #1e3a5f;
-                }
-            """)
+            if self.is_dark:
+                self.setStyleSheet("""
+                    QFrame#dropFrame {
+                        border: 2px dashed #4da6ff;
+                        border-radius: 10px;
+                        background-color: #1e3a5f;
+                    }
+                """)
+            else:
+                self.setStyleSheet("""
+                    QFrame#dropFrame {
+                        border: 2px dashed #007acc;
+                        border-radius: 10px;
+                        background-color: #e6f2ff;
+                    }
+                """)
             event.accept()
         else:
             event.ignore()
@@ -105,13 +117,22 @@ class DropZoneWidget(QFrame):
             self.files_dropped.emit(paths)
 
     def _reset_style(self):
-        self.setStyleSheet("""
-            QFrame#dropFrame {
-                border: 2px dashed #555;
-                border-radius: 10px;
-                background-color: #2b2b2b;
-            }
-        """)
+        if getattr(self, "is_dark", True):
+            self.setStyleSheet("""
+                QFrame#dropFrame {
+                    border: 2px dashed #555;
+                    border-radius: 10px;
+                    background-color: #2b2b2b;
+                }
+            """)
+        else:
+            self.setStyleSheet("""
+                QFrame#dropFrame {
+                    border: 2px dashed #a0a0a0;
+                    border-radius: 10px;
+                    background-color: #f7f7f7;
+                }
+            """)
 
 
 class MarkItDownGUI(QMainWindow):
@@ -123,7 +144,9 @@ class MarkItDownGUI(QMainWindow):
 
         self.engine = MarkItDownEngine()
         self.selected_files = []
+        self.converted_success_files = set()
         self.preview_tab_widgets = []
+        self.is_dark = True
 
         # Setup Signals
         self.signals = WorkerSignals()
@@ -131,15 +154,14 @@ class MarkItDownGUI(QMainWindow):
         self.signals.batch_progress.connect(self._update_progress_ui)
         self.signals.batch_done.connect(self._finish_batch)
 
-        self._apply_dark_theme()
         self._build_ui()
+        self._apply_dark_theme()
 
     def _apply_dark_theme(self):
         self.is_dark = True
         app = QApplication.instance()
         palette = QPalette()
         
-        # Base colors
         dark_bg = QColor(30, 30, 30)
         dark_text = QColor(240, 240, 240)
         
@@ -159,22 +181,23 @@ class MarkItDownGUI(QMainWindow):
         
         app.setPalette(palette)
         
-        # General StyleSheet
         self.setStyleSheet("""
             QMainWindow { background-color: #1e1e1e; }
             QFrame { background-color: #252526; border-radius: 8px; }
+            QLabel { color: #f0f0f0; }
+            QCheckBox { color: #f0f0f0; }
             QPushButton { 
                 background-color: #333337; border: 1px solid #555; 
                 padding: 6px; border-radius: 4px; color: #fff;
             }
             QPushButton:hover { background-color: #3f3f46; }
             QPushButton#primaryBtn { 
-                background-color: #007acc; border: none; font-weight: bold; font-size: 14px;
+                background-color: #007acc; border: none; font-weight: bold; font-size: 14px; color: #fff;
             }
             QPushButton#primaryBtn:hover { background-color: #0098ff; }
-            QPushButton#dangerBtn { background-color: #cc3333; border: none; }
+            QPushButton#dangerBtn { background-color: #cc3333; border: none; color: #fff; }
             QPushButton#dangerBtn:hover { background-color: #ff4d4d; }
-            QPushButton#successBtn { background-color: #28a745; border: none; }
+            QPushButton#successBtn { background-color: #28a745; border: none; color: #fff; }
             QPushButton#successBtn:hover { background-color: #34d058; }
             QLineEdit, QComboBox, QTextEdit { 
                 background-color: #3c3c3c; border: 1px solid #555; 
@@ -191,17 +214,25 @@ class MarkItDownGUI(QMainWindow):
                 background-color: #2b2b2b; color: white;
             }
             QProgressBar::chunk { background-color: #007acc; width: 10px; }
-            QLabel#headerLbl { font-size: 18px; font-weight: bold; }
+            QLabel#headerLbl { font-size: 18px; font-weight: bold; color: #fff; }
+            QLabel#subHeaderLbl { color: #aaa; }
+            QLabel#statusLbl { color: #aaa; }
         """)
+        if hasattr(self, "drop_zone"):
+            self.drop_zone.update_theme(True)
+            self.update_graphical_file_queue()
 
     def _apply_light_theme(self):
         self.is_dark = False
         app = QApplication.instance()
         palette = QPalette()
-        app.setPalette(palette)  # Reset to default light
+        app.setPalette(palette)
+        
         self.setStyleSheet("""
             QMainWindow { background-color: #f0f0f0; }
             QFrame { background-color: #ffffff; border-radius: 8px; }
+            QLabel { color: #111111; }
+            QCheckBox { color: #111111; }
             QPushButton { 
                 background-color: #e0e0e0; border: 1px solid #ccc; 
                 padding: 6px; border-radius: 4px; color: #000;
@@ -230,8 +261,13 @@ class MarkItDownGUI(QMainWindow):
                 background-color: #e0e0e0; color: black;
             }
             QProgressBar::chunk { background-color: #007acc; width: 10px; }
-            QLabel#headerLbl { font-size: 18px; font-weight: bold; color: black; }
+            QLabel#headerLbl { font-size: 18px; font-weight: bold; color: #000; }
+            QLabel#subHeaderLbl { color: #666; }
+            QLabel#statusLbl { color: #555; }
         """)
+        if hasattr(self, "drop_zone"):
+            self.drop_zone.update_theme(False)
+            self.update_graphical_file_queue()
 
     def toggle_theme(self):
         if self.is_dark:
@@ -266,7 +302,7 @@ class MarkItDownGUI(QMainWindow):
         left_layout.addLayout(header_layout)
 
         sub_header = QLabel("Convert Office, PDF, Audio, Images & HTML to Markdown")
-        sub_header.setStyleSheet("color: gray;")
+        sub_header.setObjectName("subHeaderLbl")
         left_layout.addWidget(sub_header)
 
         # Settings
@@ -315,14 +351,15 @@ class MarkItDownGUI(QMainWindow):
         self.btn_convert.clicked.connect(self.start_conversion)
         left_layout.addWidget(self.btn_convert)
 
-        # Progress
+        # Progress Bar (HIDDEN BY DEFAULT)
         self.progress_bar = QProgressBar()
         self.progress_bar.setValue(0)
+        self.progress_bar.hide()
         left_layout.addWidget(self.progress_bar)
         
         self.status_label = QLabel("Ready")
+        self.status_label.setObjectName("statusLbl")
         self.status_label.setAlignment(Qt.AlignCenter)
-        self.status_label.setStyleSheet("color: gray;")
         left_layout.addWidget(self.status_label)
 
         main_layout.addWidget(left_panel, stretch=4)
@@ -333,6 +370,8 @@ class MarkItDownGUI(QMainWindow):
         right_layout.setContentsMargins(10, 10, 10, 10)
         
         self.tabview = QTabWidget()
+        self.tabview.setTabsClosable(True)
+        self.tabview.tabCloseRequested.connect(self._close_preview_tab)
         right_layout.addWidget(self.tabview)
 
         # Initial placeholder preview tab (Only Live Preview tabs exist in tabview)
@@ -349,6 +388,18 @@ class MarkItDownGUI(QMainWindow):
                 self.tabview.removeTab(idx)
             w.deleteLater()
         self.preview_tab_widgets.clear()
+
+    def _close_preview_tab(self, index: int):
+        """Close an individual preview tab by index."""
+        widget = self.tabview.widget(index)
+        if widget in self.preview_tab_widgets:
+            self.preview_tab_widgets.remove(widget)
+        self.tabview.removeTab(index)
+        widget.deleteLater()
+
+        # If all tabs closed, recreate default empty preview tab
+        if self.tabview.count() == 0:
+            self._add_single_preview_tab("Live Preview", "")
 
     def _add_single_preview_tab(self, title_name: str, content: str) -> QWidget:
         """Create and append a preview tab widget."""
@@ -479,14 +530,17 @@ class MarkItDownGUI(QMainWindow):
     def remove_single_file(self, file_path: str):
         if file_path in self.selected_files:
             self.selected_files.remove(file_path)
+            if file_path in self.converted_success_files:
+                self.converted_success_files.remove(file_path)
             self.update_graphical_file_queue()
 
     def clear_all_files(self):
         self.selected_files.clear()
+        self.converted_success_files.clear()
         self.update_graphical_file_queue()
 
     def update_graphical_file_queue(self):
-        """Update the compact file list inside the bottom of the Drag & Drop widget."""
+        """Update the compact file list inside the bottom of the Drag & Drop widget with green highlights for success."""
         scroll_layout = self.drop_zone.scroll_layout
         
         # Clear previous chips
@@ -496,6 +550,7 @@ class MarkItDownGUI(QMainWindow):
             if widget:
                 widget.deleteLater()
 
+        is_dark = getattr(self, "is_dark", True)
         count = len(self.selected_files)
         if count == 0:
             self.drop_zone.prompt_label.setText("📥 DRAG & DROP FILES HERE\n\n(Drop files or folders anywhere in this box)")
@@ -503,24 +558,57 @@ class MarkItDownGUI(QMainWindow):
             self.drop_zone.btn_clear_queue.hide()
             
             empty_lbl = QLabel("No files added yet.")
-            empty_lbl.setStyleSheet("color: #666; font-style: italic; border: none; background: transparent;")
+            if is_dark:
+                empty_lbl.setStyleSheet("color: #666; font-style: italic; border: none; background: transparent;")
+            else:
+                empty_lbl.setStyleSheet("color: #888; font-style: italic; border: none; background: transparent;")
             empty_lbl.setAlignment(Qt.AlignCenter)
             scroll_layout.addWidget(empty_lbl)
             return
 
-        self.drop_zone.prompt_label.setText(f"✅ {count} File(s) Ready to Convert")
+        self.drop_zone.prompt_label.setText(f"✅ {count} File(s) Selected")
         self.drop_zone.files_count_lbl.setText(f"Files in Queue ({count}):")
         self.drop_zone.btn_clear_queue.show()
 
         for idx, file_path in enumerate(self.selected_files, start=1):
+            is_success = file_path in self.converted_success_files
+            
             item_frame = QFrame()
-            item_frame.setStyleSheet("""
-                QFrame {
-                    border: 1px solid #444;
-                    border-radius: 6px;
-                    background-color: #333;
-                }
-            """)
+            if is_success:
+                if is_dark:
+                    item_frame.setStyleSheet("""
+                        QFrame {
+                            border: 1px solid #28a745;
+                            border-radius: 6px;
+                            background-color: #1e3d29;
+                        }
+                    """)
+                else:
+                    item_frame.setStyleSheet("""
+                        QFrame {
+                            border: 1px solid #28a745;
+                            border-radius: 6px;
+                            background-color: #d4edda;
+                        }
+                    """)
+            else:
+                if is_dark:
+                    item_frame.setStyleSheet("""
+                        QFrame {
+                            border: 1px solid #444;
+                            border-radius: 6px;
+                            background-color: #333;
+                        }
+                    """)
+                else:
+                    item_frame.setStyleSheet("""
+                        QFrame {
+                            border: 1px solid #ccc;
+                            border-radius: 6px;
+                            background-color: #ffffff;
+                        }
+                    """)
+            
             item_layout = QHBoxLayout(item_frame)
             item_layout.setContentsMargins(8, 4, 8, 4)
             item_layout.setSpacing(6)
@@ -528,11 +616,23 @@ class MarkItDownGUI(QMainWindow):
             fname = os.path.basename(file_path)
             ext = os.path.splitext(fname)[1].upper().replace(".", "")
             
-            lbl_name = QLabel(f"{idx}. [{ext}] {fname}")
+            status_icon = "✅ " if is_success else ""
+            lbl_name = QLabel(f"{idx}. {status_icon}[{ext}] {fname}")
             font = lbl_name.font()
             font.setBold(True)
             lbl_name.setFont(font)
-            lbl_name.setStyleSheet("border: none; background: transparent; color: #eee;")
+            
+            if is_success:
+                if is_dark:
+                    lbl_name.setStyleSheet("border: none; background: transparent; color: #4cd97b;")
+                else:
+                    lbl_name.setStyleSheet("border: none; background: transparent; color: #155724;")
+            else:
+                if is_dark:
+                    lbl_name.setStyleSheet("border: none; background: transparent; color: #eee;")
+                else:
+                    lbl_name.setStyleSheet("border: none; background: transparent; color: #222;")
+                    
             lbl_name.setToolTip(file_path)
             item_layout.addWidget(lbl_name, stretch=1)
 
@@ -564,7 +664,11 @@ class MarkItDownGUI(QMainWindow):
 
         self.btn_convert.setEnabled(False)
         self.btn_convert.setText("⏳ Converting...")
+        
+        # Show & reset Progress Bar ONLY during conversion
         self.progress_bar.setValue(0)
+        self.progress_bar.show()
+        
         self.status_label.setText("Processing conversion...")
 
         if len(self.selected_files) == 1:
@@ -596,9 +700,15 @@ class MarkItDownGUI(QMainWindow):
     def _finish_single(self, file_path, out_dir, fmt, auto_save, success, result_text):
         self.btn_convert.setEnabled(True)
         self.btn_convert.setText("🚀 Start Conversion")
+        
+        # Hide Progress Bar after conversion completes
         self.progress_bar.setValue(100)
+        self.progress_bar.hide()
 
         if success:
+            self.converted_success_files.add(file_path)
+            self.update_graphical_file_queue()
+            
             base_name = os.path.splitext(os.path.basename(file_path))[0]
             formatted = self.engine.format_output(result_text, fmt, title=base_name)
             
@@ -634,11 +744,19 @@ class MarkItDownGUI(QMainWindow):
     def _finish_batch(self, tasks):
         self.btn_convert.setEnabled(True)
         self.btn_convert.setText("🚀 Start Conversion")
+        
+        # Hide Progress Bar after batch conversion completes
         self.progress_bar.setValue(100)
+        self.progress_bar.hide()
 
         success_tasks = [t for t in tasks if t.status == "Success"]
         total = len(tasks)
         success_count = len(success_tasks)
+
+        for t in success_tasks:
+            self.converted_success_files.add(t.file_path)
+            
+        self.update_graphical_file_queue()
 
         self.status_label.setText(f"Batch complete: {success_count}/{total} files processed.")
         
