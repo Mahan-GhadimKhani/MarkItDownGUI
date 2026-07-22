@@ -297,6 +297,13 @@ class MarkItDownGUI(QMainWindow):
             QLineEdit:focus, QComboBox:focus, QTextEdit:focus { border: 1px solid #444; }
             QComboBox::drop-down { border: none; background: transparent; width: 30px; }
             QComboBox::down-arrow { image: url('%s'); width: 14px; height: 14px; }
+            QComboBox QAbstractItemView {
+                background-color: #1a1a1a;
+                color: #ddd;
+                selection-background-color: #333;
+                selection-color: #fff;
+                border: 1px solid #2a2a2a;
+            }
             
             QTabWidget::pane { border: none; border-top: 1px solid #222; background: transparent; }
             QTabBar::tab { 
@@ -363,6 +370,13 @@ class MarkItDownGUI(QMainWindow):
             QLineEdit:focus, QComboBox:focus, QTextEdit:focus { border: 1px solid #aaa; }
             QComboBox::drop-down { border: none; background: transparent; width: 30px; }
             QComboBox::down-arrow { image: url('%s'); width: 14px; height: 14px; }
+            QComboBox QAbstractItemView {
+                background-color: #fff;
+                color: #111;
+                selection-background-color: #f0f0f0;
+                selection-color: #111;
+                border: 1px solid #ddd;
+            }
             
             QTabWidget::pane { border: none; border-top: 1px solid #ddd; background: transparent; }
             QTabBar::tab { 
@@ -382,7 +396,7 @@ class MarkItDownGUI(QMainWindow):
                 color: #555;
             }
             QPushButton#iconBtn:hover { background-color: #f0f0f0; }
-        """)
+        """ % self.chevron_light_path)
         
         self.theme_btn.setIcon(get_icon("moon", "#333"))
         self.btn_dest_browse.setIcon(get_icon("plus", "#555"))
