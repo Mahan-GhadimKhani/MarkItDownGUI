@@ -18,37 +18,74 @@ class WorkerSignals(QObject):
     batch_progress = Signal(int, int, str, str)  # current, total, filename, status
     batch_done = Signal(list)  # list of tasks
 
-# --- Drag & Drop Label Component ---
-class DropZoneLabel(QLabel):
+# --- Composite Drag & Drop Zone + Selected Files List ---
+class DropZoneWidget(QFrame):
     files_dropped = Signal(list)
 
-    def __init__(self):
-        super().__init__()
-        self.setAlignment(Qt.AlignCenter)
-        self.setText("📥 DRAG & DROP FILES HERE\n\n(Drop files or folders anywhere in this box)")
-        font = self.font()
-        font.setPointSize(12)
-        font.setBold(True)
-        self.setFont(font)
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAcceptDrops(True)
+        self.setObjectName("dropFrame")
         self.setStyleSheet("""
-            QLabel {
+            QFrame#dropFrame {
                 border: 2px dashed #555;
                 border-radius: 10px;
                 background-color: #2b2b2b;
-                color: #ccc;
             }
         """)
-        self.setAcceptDrops(True)
-        self.setMinimumHeight(150)
+        
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(6)
+
+        # Drag prompt label
+        self.prompt_label = QLabel("📥 DRAG & DROP FILES HERE\n\n(Drop files or folders anywhere in this box)")
+        self.prompt_label.setAlignment(Qt.AlignCenter)
+        font = self.prompt_label.font()
+        font.setPointSize(11)
+        font.setBold(True)
+        self.prompt_label.setFont(font)
+        self.prompt_label.setStyleSheet("color: #ccc; border: none; background: transparent;")
+        layout.addWidget(self.prompt_label)
+
+        # Selected Files Header Bar inside DropZone
+        self.files_header_layout = QHBoxLayout()
+        self.files_count_lbl = QLabel("No files selected")
+        self.files_count_lbl.setStyleSheet("color: #888; font-weight: bold; border: none; background: transparent;")
+        self.files_header_layout.addWidget(self.files_count_lbl)
+        self.files_header_layout.addStretch()
+
+        self.btn_clear_queue = QPushButton("🗑️ Clear")
+        self.btn_clear_queue.setObjectName("dangerBtn")
+        self.btn_clear_queue.setToolTip("Clear all selected files")
+        self.btn_clear_queue.setFixedSize(65, 26)
+        self.btn_clear_queue.hide()
+        self.files_header_layout.addWidget(self.btn_clear_queue)
+        layout.addLayout(self.files_header_layout)
+
+        # Scroll Area for Selected File Chips
+        self.file_scroll = QScrollArea()
+        self.file_scroll.setWidgetResizable(True)
+        self.file_scroll.setMaximumHeight(160)
+        self.file_scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+
+        self.scroll_content = QWidget()
+        self.scroll_content.setStyleSheet("background: transparent;")
+        self.scroll_layout = QVBoxLayout(self.scroll_content)
+        self.scroll_layout.setContentsMargins(0, 0, 0, 0)
+        self.scroll_layout.setSpacing(4)
+        self.scroll_layout.setAlignment(Qt.AlignTop)
+
+        self.file_scroll.setWidget(self.scroll_content)
+        layout.addWidget(self.file_scroll)
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
             self.setStyleSheet("""
-                QLabel {
+                QFrame#dropFrame {
                     border: 2px dashed #4da6ff;
                     border-radius: 10px;
                     background-color: #1e3a5f;
-                    color: #fff;
                 }
             """)
             event.accept()
@@ -69,11 +106,10 @@ class DropZoneLabel(QLabel):
 
     def _reset_style(self):
         self.setStyleSheet("""
-            QLabel {
+            QFrame#dropFrame {
                 border: 2px dashed #555;
                 border-radius: 10px;
                 background-color: #2b2b2b;
-                color: #ccc;
             }
         """)
 
@@ -266,9 +302,10 @@ class MarkItDownGUI(QMainWindow):
         btn_layout.addWidget(btn_select_folder)
         left_layout.addLayout(btn_layout)
 
-        # Drag & Drop Zone
-        self.drop_zone = DropZoneLabel()
+        # Composite Drag & Drop Zone + Bottom Selected Files Mini-View
+        self.drop_zone = DropZoneWidget()
         self.drop_zone.files_dropped.connect(self._handle_dropped_files)
+        self.drop_zone.btn_clear_queue.clicked.connect(self.clear_all_files)
         left_layout.addWidget(self.drop_zone, stretch=1)
 
         # Convert Button
@@ -298,42 +335,14 @@ class MarkItDownGUI(QMainWindow):
         self.tabview = QTabWidget()
         right_layout.addWidget(self.tabview)
 
-        # Queue Tab (Always available)
-        self.queue_tab = QWidget()
-        queue_layout = QVBoxLayout(self.queue_tab)
-        
-        qheader_layout = QHBoxLayout()
-        self.queue_count_label = QLabel("No files selected")
-        font_b2 = self.queue_count_label.font()
-        font_b2.setBold(True)
-        self.queue_count_label.setFont(font_b2)
-        qheader_layout.addWidget(self.queue_count_label)
-        qheader_layout.addStretch()
-        btn_clear = QPushButton("🗑️ Clear All")
-        btn_clear.setObjectName("dangerBtn")
-        btn_clear.clicked.connect(self.clear_all_files)
-        qheader_layout.addWidget(btn_clear)
-        queue_layout.addLayout(qheader_layout)
-
-        self.scroll_area = QScrollArea()
-        self.scroll_area.setWidgetResizable(True)
-        self.scroll_widget = QWidget()
-        self.scroll_layout = QVBoxLayout(self.scroll_widget)
-        self.scroll_layout.setAlignment(Qt.AlignTop)
-        self.scroll_area.setWidget(self.scroll_widget)
-        queue_layout.addWidget(self.scroll_area)
-        
-        # Add default placeholder preview tab
+        # Initial placeholder preview tab (Only Live Preview tabs exist in tabview)
         self._add_single_preview_tab("Live Preview", "")
-        
-        # Add Queue tab at end
-        self.tabview.addTab(self.queue_tab, "📋 Selected Files")
 
         main_layout.addWidget(right_panel, stretch=6)
         self.update_graphical_file_queue()
 
     def clear_preview_tabs(self):
-        """Remove all dynamic preview tabs except the Queue tab."""
+        """Remove all preview tabs from the TabWidget."""
         for w in self.preview_tab_widgets:
             idx = self.tabview.indexOf(w)
             if idx != -1:
@@ -342,7 +351,7 @@ class MarkItDownGUI(QMainWindow):
         self.preview_tab_widgets.clear()
 
     def _add_single_preview_tab(self, title_name: str, content: str) -> QWidget:
-        """Create and append a preview tab widget before the Queue tab."""
+        """Create and append a preview tab widget."""
         tab_widget = QWidget()
         layout = QVBoxLayout(tab_widget)
         
@@ -376,9 +385,7 @@ class MarkItDownGUI(QMainWindow):
         
         layout.addLayout(btn_layout)
 
-        # Insert tab before Selected Files tab (which is at last index)
-        insert_idx = max(0, self.tabview.count() - 1) if hasattr(self, "queue_tab") and self.tabview.indexOf(self.queue_tab) != -1 else 0
-        self.tabview.insertTab(insert_idx, tab_widget, f"📄 {title_name}")
+        new_idx = self.tabview.addTab(tab_widget, f"📄 {title_name}")
         self.preview_tab_widgets.append(tab_widget)
         return tab_widget
 
@@ -479,49 +486,64 @@ class MarkItDownGUI(QMainWindow):
         self.update_graphical_file_queue()
 
     def update_graphical_file_queue(self):
-        # Clear layout
-        while self.scroll_layout.count():
-            item = self.scroll_layout.takeAt(0)
+        """Update the compact file list inside the bottom of the Drag & Drop widget."""
+        scroll_layout = self.drop_zone.scroll_layout
+        
+        # Clear previous chips
+        while scroll_layout.count():
+            item = scroll_layout.takeAt(0)
             widget = item.widget()
             if widget:
                 widget.deleteLater()
 
         count = len(self.selected_files)
         if count == 0:
-            self.drop_zone.setText("📥 DRAG & DROP FILES HERE\n\n(Drop files or folders anywhere in this box)")
-            self.queue_count_label.setText("No files selected")
-            empty_lbl = QLabel("No files added yet. Drag and drop or click 'Select Files'.")
-            empty_lbl.setStyleSheet("color: gray;")
+            self.drop_zone.prompt_label.setText("📥 DRAG & DROP FILES HERE\n\n(Drop files or folders anywhere in this box)")
+            self.drop_zone.files_count_lbl.setText("No files selected")
+            self.drop_zone.btn_clear_queue.hide()
+            
+            empty_lbl = QLabel("No files added yet.")
+            empty_lbl.setStyleSheet("color: #666; font-style: italic; border: none; background: transparent;")
             empty_lbl.setAlignment(Qt.AlignCenter)
-            self.scroll_layout.addWidget(empty_lbl)
+            scroll_layout.addWidget(empty_lbl)
             return
 
-        self.drop_zone.setText(f"✅ {count} File(s) Selected\n\nDrag more files here or click Start Conversion")
-        self.queue_count_label.setText(f"Files in Queue: {count}")
+        self.drop_zone.prompt_label.setText(f"✅ {count} File(s) Ready to Convert")
+        self.drop_zone.files_count_lbl.setText(f"Files in Queue ({count}):")
+        self.drop_zone.btn_clear_queue.show()
 
         for idx, file_path in enumerate(self.selected_files, start=1):
             item_frame = QFrame()
-            item_frame.setStyleSheet("QFrame { border: 1px solid #555; background-color: transparent; }")
+            item_frame.setStyleSheet("""
+                QFrame {
+                    border: 1px solid #444;
+                    border-radius: 6px;
+                    background-color: #333;
+                }
+            """)
             item_layout = QHBoxLayout(item_frame)
-            item_layout.setContentsMargins(10, 5, 10, 5)
+            item_layout.setContentsMargins(8, 4, 8, 4)
+            item_layout.setSpacing(6)
             
             fname = os.path.basename(file_path)
-            ext = os.path.splitext(fname)[1].upper()
+            ext = os.path.splitext(fname)[1].upper().replace(".", "")
             
             lbl_name = QLabel(f"{idx}. [{ext}] {fname}")
             font = lbl_name.font()
             font.setBold(True)
             lbl_name.setFont(font)
-            lbl_name.setStyleSheet("border: none;")
+            lbl_name.setStyleSheet("border: none; background: transparent; color: #eee;")
+            lbl_name.setToolTip(file_path)
             item_layout.addWidget(lbl_name, stretch=1)
 
             btn_remove = QPushButton("❌")
             btn_remove.setObjectName("dangerBtn")
-            btn_remove.setFixedSize(30, 30)
+            btn_remove.setFixedSize(24, 24)
+            btn_remove.setToolTip("Remove file")
             btn_remove.clicked.connect(lambda checked=False, fp=file_path: self.remove_single_file(fp))
             item_layout.addWidget(btn_remove)
             
-            self.scroll_layout.addWidget(item_frame)
+            scroll_layout.addWidget(item_frame)
 
     def get_output_format_code(self):
         val = self.format_combo.currentText()
