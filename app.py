@@ -80,16 +80,22 @@ class ToggleSwitch(QCheckBox):
         p.setPen(Qt.NoPen)
         rect = QRectF(0, 0, self.width(), self.height())
         
+        is_dark = True
+        window = self.window()
+        if hasattr(window, 'is_dark'):
+            is_dark = window.is_dark
+
         if not self.isChecked():
-            p.setBrush(QColor(60, 60, 60))
-            p.drawRoundedRect(0, 0, rect.width(), rect.height(), self.height()/2, self.height()/2)
-            p.setBrush(QColor(150, 150, 150))
-            p.drawEllipse(self._position, 2, 18, 18)
+            bg_color = QColor(60, 60, 60) if is_dark else QColor(200, 200, 200)
+            handle_color = QColor(150, 150, 150) if is_dark else QColor(100, 100, 100)
         else:
-            p.setBrush(QColor(230, 230, 230))
-            p.drawRoundedRect(0, 0, rect.width(), rect.height(), self.height()/2, self.height()/2)
-            p.setBrush(QColor(30, 30, 30))
-            p.drawEllipse(self._position, 2, 18, 18)
+            bg_color = QColor(230, 230, 230) if is_dark else QColor(40, 40, 40)
+            handle_color = QColor(30, 30, 30) if is_dark else QColor(240, 240, 240)
+
+        p.setBrush(bg_color)
+        p.drawRoundedRect(0, 0, rect.width(), rect.height(), self.height()/2, self.height()/2)
+        p.setBrush(handle_color)
+        p.drawEllipse(self._position, 2, 18, 18)
         p.end()
 
 class QueueDropZoneWidget(QFrame):
@@ -208,12 +214,20 @@ class QueueDropZoneWidget(QFrame):
             self.files_dropped.emit(paths)
 
     def _reset_style(self):
-        self.setStyleSheet("QFrame#queueDropZone { border: 1px dashed transparent; border-radius: 8px; background-color: transparent; }")
+        self.setStyleSheet("QFrame#queueDropZone { border: 1px solid rgba(128, 128, 128, 0.3); border-radius: 8px; background-color: transparent; }")
+
+def get_resource_path(relative_path):
+    if getattr(sys, 'frozen', False):
+        base_path = os.path.dirname(sys.executable)
+    else:
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_path, relative_path)
 
 class MarkItDownGUI(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("MarkItDown")
+        self.setWindowIcon(QIcon(get_resource_path("icon.ico")))
         self.resize(1100, 750)
         self.setMinimumSize(950, 650)
         
@@ -222,6 +236,16 @@ class MarkItDownGUI(QMainWindow):
         self.selected_files = []
         self.converted_success_files = set()
         self.preview_tab_widgets = []
+        
+        import tempfile
+        self.tmp_dir = tempfile.gettempdir()
+        self.chevron_dark_path = os.path.join(self.tmp_dir, "chevron_dark.svg").replace('\\', '/')
+        self.chevron_light_path = os.path.join(self.tmp_dir, "chevron_light.svg").replace('\\', '/')
+        
+        with open(self.chevron_dark_path, "w") as f:
+            f.write(SVG_ICONS["chevron-down"].replace("currentColor", "#666"))
+        with open(self.chevron_light_path, "w") as f:
+            f.write(SVG_ICONS["chevron-down"].replace("currentColor", "#888"))
 
         self.signals = WorkerSignals()
         self.signals.single_done.connect(self._finish_single)
@@ -271,6 +295,8 @@ class MarkItDownGUI(QMainWindow):
                 color: #ddd; padding: 8px; border-radius: 6px;
             }
             QLineEdit:focus, QComboBox:focus, QTextEdit:focus { border: 1px solid #444; }
+            QComboBox::drop-down { border: none; background: transparent; width: 30px; }
+            QComboBox::down-arrow { image: url('%s'); width: 14px; height: 14px; }
             
             QTabWidget::pane { border: none; border-top: 1px solid #222; background: transparent; }
             QTabBar::tab { 
@@ -290,7 +316,7 @@ class MarkItDownGUI(QMainWindow):
                 color: #ccc;
             }
             QPushButton#iconBtn:hover { background-color: #252525; }
-        """)
+        """ % self.chevron_dark_path)
         
         self.theme_btn.setIcon(get_icon("sun", "#ccc"))
         self.btn_dest_browse.setIcon(get_icon("plus", "#ccc"))
@@ -335,6 +361,8 @@ class MarkItDownGUI(QMainWindow):
                 color: #111; padding: 8px; border-radius: 6px;
             }
             QLineEdit:focus, QComboBox:focus, QTextEdit:focus { border: 1px solid #aaa; }
+            QComboBox::drop-down { border: none; background: transparent; width: 30px; }
+            QComboBox::down-arrow { image: url('%s'); width: 14px; height: 14px; }
             
             QTabWidget::pane { border: none; border-top: 1px solid #ddd; background: transparent; }
             QTabBar::tab { 

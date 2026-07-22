@@ -94,6 +94,8 @@ def main():
         return
 
     print(f"\n[SUCCESS] Executable rebuilt at: {exe_path}")
+    import shutil
+    shutil.copy2(ico_path, os.path.join(base_dir, "dist", "MarkItDown", "icon.ico"))
     create_desktop_shortcut(exe_path, ico_path)
 
 if __name__ == "__main__":
