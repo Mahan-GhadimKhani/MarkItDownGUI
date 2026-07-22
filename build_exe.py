@@ -56,17 +56,32 @@ def main():
         create_icon_file(ico_path)
 
     app_script = os.path.join(base_dir, "app.py")
-    exe_path = os.path.join(base_dir, "dist", "MarkItDown.exe")
+    exe_path = os.path.join(base_dir, "dist", "MarkItDown", "MarkItDown.exe")
 
-    # Always rebuild PyInstaller to include latest app.py changes
+    # Rebuild PyInstaller with --onedir (instant launch) and excluding heavy unused Qt modules
     pyinstaller_cmd = [
         sys.executable, "-m", "PyInstaller",
         "--noconsole",
-        "--onefile",
+        "--onedir",
         f"--name=MarkItDown",
         f"--icon={ico_path}",
         "--clean",
-        "--collect-all", "PySide6",
+        "--collect-submodules", "PySide6.QtCore",
+        "--collect-submodules", "PySide6.QtWidgets",
+        "--collect-submodules", "PySide6.QtGui",
+        "--exclude-module", "PySide6.QtWebEngineCore",
+        "--exclude-module", "PySide6.QtWebEngineWidgets",
+        "--exclude-module", "PySide6.QtWebEngineQuick",
+        "--exclude-module", "PySide6.QtQml",
+        "--exclude-module", "PySide6.QtQuick",
+        "--exclude-module", "PySide6.Qt3DCore",
+        "--exclude-module", "PySide6.QtBluetooth",
+        "--exclude-module", "PySide6.QtSql",
+        "--exclude-module", "PySide6.QtSensors",
+        "--exclude-module", "PySide6.QtPositioning",
+        "--exclude-module", "PySide6.QtMultimedia",
+        "--exclude-module", "PySide6.QtNfc",
+        "--exclude-module", "PySide6.QtPdf",
         "--collect-all", "markitdown",
         "--collect-all", "magika",
         app_script
