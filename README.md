@@ -1,4 +1,5 @@
 <img width="1280" height="640" alt="MarkItDownGUI-banner" src="https://github.com/user-attachments/assets/dd94e8ed-470a-4a37-a2bc-f2a3d46c0fc9" />
+
 # MarkItDown GUI
 
 A modern, fast, and feature-rich graphical user interface for converting various file formats (Office, PDF, Images, etc.) into clean Markdown or HTML. Powered by Microsoft's MarkItDown and a beautifully crafted PySide6 (Qt) interface.
