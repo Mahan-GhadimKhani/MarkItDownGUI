@@ -316,6 +316,7 @@ class MarkItDownGUI(QMainWindow):
         self.btn_select_folder.setIcon(get_icon("folder-plus", "#ccc"))
         self.btn_convert.setIcon(get_icon("arrow-right", "#111"))
         self.btn_copy.setIcon(get_icon("copy", "#888"))
+        self.btn_save.setIcon(get_icon("save", "#888"))
         
         if hasattr(self, 'icon_lbl'):
             self.icon_lbl.setPixmap(get_icon("arrow-up-down", "#444").pixmap(40, 40))
@@ -400,6 +401,7 @@ class MarkItDownGUI(QMainWindow):
         self.btn_select_folder.setIcon(get_icon("folder-plus", "#333"))
         self.btn_convert.setIcon(get_icon("arrow-right", "#fff"))
         self.btn_copy.setIcon(get_icon("copy", "#888"))
+        self.btn_save.setIcon(get_icon("save", "#888"))
 
         if hasattr(self, 'icon_lbl'):
             self.icon_lbl.setPixmap(get_icon("arrow-up-down", "#999").pixmap(40, 40))
@@ -583,6 +585,13 @@ class MarkItDownGUI(QMainWindow):
         self.btn_copy.clicked.connect(self._copy_current_tab)
         footer_layout.addWidget(self.btn_copy)
         
+        self.btn_save = QPushButton("Save")
+        self.btn_save.setFixedSize(80, 26)
+        self.btn_save.setCursor(Qt.PointingHandCursor)
+        self.btn_save.setStyleSheet("QPushButton { background: transparent; color: #888; border: none; font-size: 12px; } QPushButton:hover { color: #ccc; }")
+        self.btn_save.clicked.connect(self._save_current_tab)
+        footer_layout.addWidget(self.btn_save)
+        
         footer_layout.addStretch()
         
         self.stats_lbl = QLabel("Ln 0, Col 0    0 Bytes")
@@ -687,18 +696,48 @@ class MarkItDownGUI(QMainWindow):
                 QTimer = __import__("PySide6.QtCore").QtCore.QTimer
                 QTimer.singleShot(1500, lambda: self.btn_copy.setText("Copy"))
 
+    def _save_current_tab(self):
+        idx = self.tabview.currentIndex()
+        if idx == -1:
+            QMessageBox.warning(self, "Empty", "No document open to save.")
+            return
+        widget = self.tabview.widget(idx)
+        text_edit = widget.findChild(QTextEdit)
+        if text_edit:
+            text = text_edit.toPlainText()
+            if text.strip():
+                fname, _ = QFileDialog.getSaveFileName(self, "Save File", "", "Markdown Files (*.md);;HTML Files (*.html);;All Files (*.*)")
+                if fname:
+                    try:
+                        with open(fname, 'w', encoding='utf-8') as f:
+                            f.write(text)
+                        self.btn_save.setText("Saved")
+                        QTimer = __import__("PySide6.QtCore").QtCore.QTimer
+                        QTimer.singleShot(1500, lambda: self.btn_save.setText("Save"))
+                    except Exception as e:
+                        Toast(self, f"Error saving file: {e}", "error")
+
     def _handle_dropped_files(self, raw_paths):
         valid_files = []
+        unsupported_count = 0
         for path in raw_paths:
             if os.path.isfile(path):
                 if self.engine.is_supported(path):
                     valid_files.append(path)
+                else:
+                    unsupported_count += 1
             elif os.path.isdir(path):
                 for root, _, fnames in os.walk(path):
                     for fn in fnames:
                         fp = os.path.join(root, fn)
                         if self.engine.is_supported(fp):
                             valid_files.append(fp)
+                        else:
+                            unsupported_count += 1
+                            
+        if unsupported_count > 0:
+            Toast(self, f"{unsupported_count} file(s) had unsupported formats and were skipped.", "error")
+            
         if valid_files:
             for vf in valid_files:
                 if vf not in self.selected_files:
@@ -711,20 +750,31 @@ class MarkItDownGUI(QMainWindow):
             "All Supported Files (*.docx *.pptx *.xlsx *.xls *.pdf *.html *.xml *.json *.csv *.zip *.txt *.mp3 *.wav *.png *.jpg *.jpeg);;All Files (*.*)"
         )
         if files:
+            unsupported_count = 0
             for f in files:
-                if f not in self.selected_files:
-                    self.selected_files.append(f)
+                if self.engine.is_supported(f):
+                    if f not in self.selected_files:
+                        self.selected_files.append(f)
+                else:
+                    unsupported_count += 1
+            if unsupported_count > 0:
+                Toast(self, f"{unsupported_count} file(s) had unsupported formats and were skipped.", "error")
             self.update_graphical_file_queue()
 
     def browse_folder(self):
         folder = QFileDialog.getExistingDirectory(self, "Select Folder to Convert")
         if folder:
             found_files = []
+            unsupported_count = 0
             for root, _, files in os.walk(folder):
                 for f in files:
                     fp = os.path.join(root, f)
                     if self.engine.is_supported(fp):
                         found_files.append(fp)
+                    else:
+                        unsupported_count += 1
+            if unsupported_count > 0:
+                Toast(self, f"{unsupported_count} file(s) had unsupported formats and were skipped.", "error")
             if found_files:
                 for ff in found_files:
                     if ff not in self.selected_files:
