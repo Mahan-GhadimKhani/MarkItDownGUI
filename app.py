@@ -32,6 +32,37 @@ class WorkerSignals(QObject):
     batch_progress = Signal(int, int, str, str)
     batch_done = Signal(list)
 
+class Toast(QLabel):
+    def __init__(self, parent, text, type="error"):
+        super().__init__(parent)
+        self.setText(text)
+        self.setAlignment(Qt.AlignCenter)
+        color = "#ff4c4c" if type == "error" else "#4caf50"
+        self.setStyleSheet(f"background-color: {color}; color: white; padding: 10px 20px; border-radius: 5px; font-weight: bold;")
+        self.adjustSize()
+        
+        parent_rect = parent.rect()
+        self.move(parent_rect.width() // 2 - self.width() // 2, parent_rect.height() - self.height() - 50)
+        
+        from PySide6.QtWidgets import QGraphicsOpacityEffect
+        from PySide6.QtCore import QPropertyAnimation, QTimer
+        self.effect = QGraphicsOpacityEffect(self)
+        self.setGraphicsEffect(self.effect)
+        self.animation = QPropertyAnimation(self.effect, b"opacity")
+        self.animation.setDuration(500)
+        self.animation.setStartValue(0)
+        self.animation.setEndValue(1)
+        self.animation.start()
+        
+        self.show()
+        QTimer.singleShot(4000, self.hide_toast)
+        
+    def hide_toast(self):
+        from PySide6.QtCore import QPropertyAnimation
+        self.animation.setDirection(QPropertyAnimation.Backward)
+        self.animation.finished.connect(self.deleteLater)
+        self.animation.start()
+
 class ToggleSwitch(QCheckBox):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -719,13 +750,13 @@ class MarkItDownGUI(QMainWindow):
 
     def _handle_dropped_files(self, raw_paths):
         valid_files = []
-        unsupported_count = 0
+        unsupported_files = []
         for path in raw_paths:
             if os.path.isfile(path):
                 if self.engine.is_supported(path):
                     valid_files.append(path)
                 else:
-                    unsupported_count += 1
+                    unsupported_files.append(os.path.basename(path))
             elif os.path.isdir(path):
                 for root, _, fnames in os.walk(path):
                     for fn in fnames:
@@ -733,10 +764,13 @@ class MarkItDownGUI(QMainWindow):
                         if self.engine.is_supported(fp):
                             valid_files.append(fp)
                         else:
-                            unsupported_count += 1
+                            unsupported_files.append(fn)
                             
-        if unsupported_count > 0:
-            Toast(self, f"{unsupported_count} file(s) had unsupported formats and were skipped.", "error")
+        if unsupported_files:
+            files_str = ", ".join(unsupported_files)
+            if len(files_str) > 50:
+                files_str = files_str[:47] + "..."
+            Toast(self, f"Unsupported files skipped: {files_str}", "error")
             
         if valid_files:
             for vf in valid_files:
@@ -750,31 +784,37 @@ class MarkItDownGUI(QMainWindow):
             "All Supported Files (*.docx *.pptx *.xlsx *.xls *.pdf *.html *.xml *.json *.csv *.zip *.txt *.mp3 *.wav *.png *.jpg *.jpeg);;All Files (*.*)"
         )
         if files:
-            unsupported_count = 0
+            unsupported_files = []
             for f in files:
                 if self.engine.is_supported(f):
                     if f not in self.selected_files:
                         self.selected_files.append(f)
                 else:
-                    unsupported_count += 1
-            if unsupported_count > 0:
-                Toast(self, f"{unsupported_count} file(s) had unsupported formats and were skipped.", "error")
+                    unsupported_files.append(os.path.basename(f))
+            if unsupported_files:
+                files_str = ", ".join(unsupported_files)
+                if len(files_str) > 50:
+                    files_str = files_str[:47] + "..."
+                Toast(self, f"Unsupported files skipped: {files_str}", "error")
             self.update_graphical_file_queue()
 
     def browse_folder(self):
         folder = QFileDialog.getExistingDirectory(self, "Select Folder to Convert")
         if folder:
             found_files = []
-            unsupported_count = 0
+            unsupported_files = []
             for root, _, files in os.walk(folder):
                 for f in files:
                     fp = os.path.join(root, f)
                     if self.engine.is_supported(fp):
                         found_files.append(fp)
                     else:
-                        unsupported_count += 1
-            if unsupported_count > 0:
-                Toast(self, f"{unsupported_count} file(s) had unsupported formats and were skipped.", "error")
+                        unsupported_files.append(f)
+            if unsupported_files:
+                files_str = ", ".join(unsupported_files)
+                if len(files_str) > 50:
+                    files_str = files_str[:47] + "..."
+                Toast(self, f"Unsupported files skipped: {files_str}", "error")
             if found_files:
                 for ff in found_files:
                     if ff not in self.selected_files:

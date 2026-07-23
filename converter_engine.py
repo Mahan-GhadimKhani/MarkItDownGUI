@@ -8,8 +8,7 @@ SUPPORTED_EXTENSIONS = {
     '.docx', '.pptx', '.xlsx', '.xls', '.pdf',
     '.html', '.htm', '.xhtml', '.xml', '.json', '.csv',
     '.zip', '.txt', '.text', '.log', '.md',
-    '.mp3', '.wav', '.m4a', '.ogg',
-    '.jpg', '.jpeg', '.png', '.gif', '.bmp'
+    '.mp3', '.wav', '.m4a', '.ogg'
 }
 
 class ConversionTask:
