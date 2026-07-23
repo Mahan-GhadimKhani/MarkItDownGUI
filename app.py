@@ -347,7 +347,7 @@ class MarkItDownGUI(QMainWindow):
         self.btn_select_folder.setIcon(get_icon("folder-plus", "#ccc"))
         self.btn_convert.setIcon(get_icon("arrow-right", "#111"))
         self.btn_copy.setIcon(get_icon("copy", "#888"))
-        self.btn_save.setIcon(get_icon("save", "#888"))
+        self.btn_save.setIcon(get_icon("download", "#888"))
         
         if hasattr(self, 'icon_lbl'):
             self.icon_lbl.setPixmap(get_icon("arrow-up-down", "#444").pixmap(40, 40))
@@ -432,7 +432,7 @@ class MarkItDownGUI(QMainWindow):
         self.btn_select_folder.setIcon(get_icon("folder-plus", "#333"))
         self.btn_convert.setIcon(get_icon("arrow-right", "#fff"))
         self.btn_copy.setIcon(get_icon("copy", "#888"))
-        self.btn_save.setIcon(get_icon("save", "#888"))
+        self.btn_save.setIcon(get_icon("download", "#888"))
 
         if hasattr(self, 'icon_lbl'):
             self.icon_lbl.setPixmap(get_icon("arrow-up-down", "#999").pixmap(40, 40))
@@ -605,8 +605,8 @@ class MarkItDownGUI(QMainWindow):
         self.right_stack.addWidget(tabs_page)
         
         # Footer
-        footer_widget = QWidget()
-        footer_layout = QHBoxLayout(footer_widget)
+        self.footer_widget = QWidget()
+        footer_layout = QHBoxLayout(self.footer_widget)
         footer_layout.setContentsMargins(15, 10, 15, 15)
         
         self.btn_copy = QPushButton("Copy")
@@ -629,7 +629,8 @@ class MarkItDownGUI(QMainWindow):
         self.stats_lbl.setStyleSheet("color: #555; font-size: 11px;")
         footer_layout.addWidget(self.stats_lbl)
         
-        right_layout.addWidget(footer_widget)
+        right_layout.addWidget(self.footer_widget)
+        self.footer_widget.hide()
         
         main_layout.addWidget(right_panel)
         
@@ -638,8 +639,10 @@ class MarkItDownGUI(QMainWindow):
     def _on_tab_changed(self, index):
         if index == -1:
             self.stats_lbl.setText("Ln 0, Col 0    0 Bytes")
+            self.footer_widget.hide()
             return
             
+        self.footer_widget.show()
         widget = self.tabview.widget(index)
         if widget:
             text_edit = widget.findChild(QTextEdit)
