@@ -47,13 +47,14 @@ class MarkItDownEngine:
         file_paths: List[str],
         output_dir: str,
         output_format: str,
+        auto_save: bool,
         on_progress: Callable[[int, int, str, str], None], # (current, total, filename, status)
         on_complete: Callable[[List[ConversionTask]], None]
     ):
         """Run batch conversion in a separate thread."""
         thread = threading.Thread(
             target=self._run_batch,
-            args=(file_paths, output_dir, output_format, on_progress, on_complete),
+            args=(file_paths, output_dir, output_format, auto_save, on_progress, on_complete),
             daemon=True
         )
         thread.start()
@@ -63,6 +64,7 @@ class MarkItDownEngine:
         file_paths: List[str],
         output_dir: str,
         output_format: str,
+        auto_save: bool,
         on_progress: Callable[[int, int, str, str], None],
         on_complete: Callable[[List[ConversionTask]], None]
     ):
@@ -97,9 +99,10 @@ class MarkItDownEngine:
 
                 try:
                     formatted_content = self.format_output(task.result_text, output_format, title=base_name)
-                    with open(out_path, "w", encoding="utf-8") as f:
-                        f.write(formatted_content)
-                    task.output_file = out_path
+                    if auto_save:
+                        with open(out_path, "w", encoding="utf-8") as f:
+                            f.write(formatted_content)
+                        task.output_file = out_path
                 except Exception as ex:
                     task.status = "Error"
                     task.error_message = f"Failed to save file: {str(ex)}"

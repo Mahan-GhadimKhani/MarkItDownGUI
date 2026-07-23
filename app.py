@@ -783,6 +783,7 @@ class MarkItDownGUI(QMainWindow):
                 file_paths=self.selected_files,
                 output_dir=out_dir if out_dir else os.path.dirname(self.selected_files[0]),
                 output_format=fmt,
+                auto_save=auto_save,
                 on_progress=on_progress,
                 on_complete=on_complete
             )
