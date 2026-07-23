@@ -625,6 +625,17 @@ class MarkItDownGUI(QMainWindow):
             self.right_stack.setCurrentIndex(0)
 
     def _add_single_preview_tab(self, title_name: str, content: str) -> QWidget:
+        # If a tab with the same title already exists, just update its content
+        for i in range(self.tabview.count()):
+            if self.tabview.tabText(i) == title_name:
+                widget = self.tabview.widget(i)
+                text_edit = widget.findChild(QTextEdit)
+                if text_edit:
+                    text_edit.setPlainText(content)
+                    self._update_stats(text_edit)
+                self.tabview.setCurrentIndex(i)
+                return widget
+
         tab_widget = QWidget()
         layout = QVBoxLayout(tab_widget)
         layout.setContentsMargins(0, 5, 0, 0)
@@ -794,8 +805,10 @@ class MarkItDownGUI(QMainWindow):
             base_name = os.path.splitext(os.path.basename(file_path))[0]
             formatted = self.engine.format_output(result_text, fmt, title=base_name)
             
-            self.clear_preview_tabs()
-            self._add_single_preview_tab(os.path.basename(file_path), formatted)
+            ext_map = {"md": ".md", "txt": ".txt", "html": ".html"}
+            tab_title = f"{base_name}{ext_map.get(fmt, '.md')}"
+            
+            self._add_single_preview_tab(tab_title, formatted)
             self.tabview.setCurrentIndex(0)
 
             if auto_save:
@@ -838,10 +851,14 @@ class MarkItDownGUI(QMainWindow):
 
         self.status_label.setText(f"Status: Batch complete ({success_count}/{total})")
         
-        self.clear_preview_tabs()
+        fmt = self.get_output_format_code()
+        ext_map = {"md": ".md", "txt": ".txt", "html": ".html"}
+        
         for task in success_tasks:
-            fname = os.path.basename(task.file_path)
-            self._add_single_preview_tab(fname, task.result_text)
+            base_name = os.path.splitext(os.path.basename(task.file_path))[0]
+            formatted = self.engine.format_output(task.result_text, fmt, title=base_name)
+            tab_title = f"{base_name}{ext_map.get(fmt, '.md')}"
+            self._add_single_preview_tab(tab_title, formatted)
 
         if success_tasks:
             self.tabview.setCurrentIndex(0)
