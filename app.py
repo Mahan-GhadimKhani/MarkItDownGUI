@@ -161,18 +161,19 @@ class QueueDropZoneWidget(QFrame):
                 
                 fname = os.path.basename(f)
                 lbl = QLabel(fname)
-                lbl.setStyleSheet("color: #ccc; font-size: 13px;")
+                lbl.setStyleSheet("font-size: 13px;")
                 if is_success:
-                    lbl.setStyleSheet("color: #ccc; font-size: 13px;") 
+                    lbl.setStyleSheet("font-size: 13px;")
                 
                 # Delete btn
                 btn_del = QPushButton()
-                btn_del.setIcon(get_icon("x", "#666"))
+                btn_del.setObjectName("queueDelBtn")
+                # Ensure we set an icon that adapts or just relies on a standard color.
+                btn_del.setIcon(get_icon("x", "#888"))
                 btn_del.setFixedSize(20, 20)
                 btn_del.setCursor(Qt.PointingHandCursor)
                 btn_del.setStyleSheet("""
-                    QPushButton { background: transparent; color: #666; border: none; font-size: 12px; }
-                    QPushButton:hover { color: #f0f0f0; }
+                    QPushButton { background: transparent; border: none; }
                 """)
                 btn_del.clicked.connect(lambda checked=False, fp=f: self.remove_requested.emit(fp))
                 
@@ -272,6 +273,7 @@ class MarkItDownGUI(QMainWindow):
             QPushButton#clearBtn { background-color: transparent; border: none; color: #666; font-size: 10px; font-weight: bold; }
             QPushButton#clearBtn:hover { color: #ccc; }
             QPushButton#themeBtn { background-color: transparent; border: none; font-size: 16px; }
+            QPushButton#queueDelBtn:hover { background-color: #333; border-radius: 4px; }
             
             QLineEdit, QComboBox, QTextEdit { 
                 background-color: #1a1a1a; border: 1px solid #2a2a2a; 
@@ -325,6 +327,16 @@ class MarkItDownGUI(QMainWindow):
         self.is_dark = False
         app = QApplication.instance()
         palette = QPalette()
+        light_bg = QColor(255, 255, 255)
+        palette.setColor(QPalette.Window, light_bg)
+        palette.setColor(QPalette.WindowText, QColor(20, 20, 20))
+        palette.setColor(QPalette.Base, QColor(245, 245, 245))
+        palette.setColor(QPalette.AlternateBase, QColor(235, 235, 235))
+        palette.setColor(QPalette.ToolTipBase, QColor(20, 20, 20))
+        palette.setColor(QPalette.ToolTipText, light_bg)
+        palette.setColor(QPalette.Text, QColor(20, 20, 20))
+        palette.setColor(QPalette.Button, QColor(240, 240, 240))
+        palette.setColor(QPalette.ButtonText, QColor(20, 20, 20))
         app.setPalette(palette)
         
         self.setStyleSheet("""
@@ -345,6 +357,7 @@ class MarkItDownGUI(QMainWindow):
             QPushButton#clearBtn { background-color: transparent; border: none; color: #888; font-size: 10px; font-weight: bold; }
             QPushButton#clearBtn:hover { color: #333; }
             QPushButton#themeBtn { background-color: transparent; border: none; font-size: 16px; }
+            QPushButton#queueDelBtn:hover { background-color: #ddd; border-radius: 4px; }
             
             QLineEdit, QComboBox, QTextEdit { 
                 background-color: #fff; border: 1px solid #ddd; 
