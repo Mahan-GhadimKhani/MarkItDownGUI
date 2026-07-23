@@ -1,4 +1,3 @@
-import html
 import os
 import threading
 from typing import List, Callable, Optional, Tuple
