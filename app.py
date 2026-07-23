@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QFileDialog, QMessageBox, QFrame, QSizePolicy, QStackedWidget,
     QSpacerItem
 )
-from PySide6.QtCore import Qt, Signal, QObject, QThread, QPropertyAnimation, Property, QRectF
+from PySide6.QtCore import Qt, Signal, QObject, QThread, QPropertyAnimation, Property, QRectF, QTimer
 from PySide6.QtGui import QPalette, QColor, QFont, QGuiApplication, QClipboard, QPainter, QPainterPath
 
 from converter_engine import MarkItDownEngine
@@ -270,6 +270,90 @@ class MarkItDownGUI(QMainWindow):
         self._build_ui()
         self._apply_dark_theme()
 
+
+    def _get_base_stylesheet(self, is_dark: bool) -> str:
+        bg = "#0e0e0e" if is_dark else "#ffffff"
+        left_bg = "#141414" if is_dark else "#f7f7f7"
+        left_border = "#222" if is_dark else "#e0e0e0"
+        text_color = "#f0f0f0" if is_dark else "#111"
+        header_color = "#666" if is_dark else "#888"
+        btn_bg = "#1a1a1a" if is_dark else "#fff"
+        btn_border = "#333" if is_dark else "#ddd"
+        btn_text = "#ccc" if is_dark else "#333"
+        btn_hover = "#222" if is_dark else "#f0f0f0"
+        primary_bg = "#f0f0f0" if is_dark else "#111"
+        primary_text = "#111" if is_dark else "#fff"
+        primary_hover = "#ffffff" if is_dark else "#333"
+        clear_hover = "#ccc" if is_dark else "#333"
+        del_hover = "#333" if is_dark else "#ddd"
+        input_bg = "#1a1a1a" if is_dark else "#fff"
+        input_border = "#2a2a2a" if is_dark else "#ddd"
+        input_focus = "#444" if is_dark else "#aaa"
+        combo_sel_bg = "#333" if is_dark else "#f0f0f0"
+        combo_sel_color = "#fff" if is_dark else "#111"
+        tab_border = "#222" if is_dark else "#ddd"
+        tab_text = "#666" if is_dark else "#888"
+        tab_hover = "#aaa" if is_dark else "#555"
+        prog_bg = "#222" if is_dark else "#e0e0e0"
+        prog_chunk = "#f0f0f0" if is_dark else "#111"
+        icon_hover = "#3a3a3a" if is_dark else "#f0f0f0"
+        chevron_uri = self.chevron_dark_uri if is_dark else self.chevron_light_uri
+
+        return f"""
+            QMainWindow {{ background-color: {bg}; }}
+            QFrame#leftPanel {{ background-color: {left_bg}; border-right: 1px solid {left_border}; }}
+            QLabel {{ color: {text_color}; }}
+            QLabel.sectionHeader {{ color: {header_color}; font-size: 10px; font-weight: bold; letter-spacing: 1px; }}
+            QPushButton {{ 
+                background-color: {btn_bg}; border: 1px solid {btn_border}; 
+                padding: 6px; border-radius: 6px; color: {btn_text};
+            }}
+            QPushButton:hover {{ background-color: {btn_hover}; border-color: {input_focus}; }}
+            QPushButton#primaryBtn {{ 
+                background-color: {primary_bg}; border: none; font-weight: bold; font-size: 14px; color: {primary_text};
+                border-radius: 8px;
+            }}
+            QPushButton#primaryBtn:hover {{ background-color: {primary_hover}; }}
+            QPushButton#clearBtn {{ background-color: transparent; border: none; color: {header_color}; font-size: 10px; font-weight: bold; }}
+            QPushButton#clearBtn:hover {{ color: {clear_hover}; }}
+            QPushButton#themeBtn {{ background-color: transparent; border: none; font-size: 16px; }}
+            QPushButton#queueDelBtn:hover {{ background-color: {del_hover}; border-radius: 4px; }}
+            
+            QLineEdit, QComboBox, QTextEdit {{ 
+                background-color: {input_bg}; border: 1px solid {input_border}; 
+                color: {btn_text}; padding: 8px; border-radius: 6px;
+            }}
+            QLineEdit:focus, QComboBox:focus, QTextEdit:focus {{ border: 1px solid {input_focus}; }}
+            QComboBox::drop-down {{ border: none; background: transparent; width: 30px; }}
+            QComboBox::down-arrow {{ image: url('{chevron_uri}'); width: 14px; height: 14px; }}
+            QComboBox QAbstractItemView {{
+                background-color: {input_bg};
+                color: {btn_text};
+                selection-background-color: {combo_sel_bg};
+                selection-color: {combo_sel_color};
+                border: 1px solid {input_border};
+            }}
+            
+            QTabWidget::pane {{ border: none; border-top: 1px solid {tab_border}; background: transparent; }}
+            QTabBar::tab {{ 
+                background: transparent; padding: 10px 16px; border: none; 
+                border-bottom: 2px solid transparent; color: {tab_text}; font-weight: bold; font-size: 13px;
+            }}
+            QTabBar::tab:selected {{ color: {text_color}; border-bottom: 2px solid {text_color}; }}
+            QTabBar::tab:hover {{ color: {tab_hover}; }}
+            QProgressBar {{
+                border: none; border-radius: 2px; text-align: center;
+                background-color: {prog_bg}; color: transparent; height: 4px;
+            }}
+            QProgressBar::chunk {{ background-color: {prog_chunk}; border-radius: 2px; }}
+            
+            QPushButton#iconBtn {{
+                background-color: {btn_bg}; border: 1px solid {input_border}; border-radius: 6px; padding: 4px 8px;
+                color: {tab_text};
+            }}
+            QPushButton#iconBtn:hover {{ background-color: {icon_hover}; }}
+        """
+
     def _apply_dark_theme(self):
         self.is_dark = True
         app = QApplication.instance()
@@ -286,60 +370,7 @@ class MarkItDownGUI(QMainWindow):
         palette.setColor(QPalette.ButtonText, QColor(240, 240, 240))
         app.setPalette(palette)
         
-        self.setStyleSheet("""
-            QMainWindow { background-color: #0e0e0e; }
-            QFrame#leftPanel { background-color: #141414; border-right: 1px solid #222; }
-            QLabel { color: #f0f0f0; }
-            QLabel.sectionHeader { color: #666; font-size: 10px; font-weight: bold; letter-spacing: 1px; }
-            QPushButton { 
-                background-color: #1a1a1a; border: 1px solid #333; 
-                padding: 6px; border-radius: 6px; color: #ccc;
-            }
-            QPushButton:hover { background-color: #222; border-color: #444; }
-            QPushButton#primaryBtn { 
-                background-color: #f0f0f0; border: none; font-weight: bold; font-size: 14px; color: #111;
-                border-radius: 8px;
-            }
-            QPushButton#primaryBtn:hover { background-color: #ffffff; }
-            QPushButton#clearBtn { background-color: transparent; border: none; color: #666; font-size: 10px; font-weight: bold; }
-            QPushButton#clearBtn:hover { color: #ccc; }
-            QPushButton#themeBtn { background-color: transparent; border: none; font-size: 16px; }
-            QPushButton#queueDelBtn:hover { background-color: #333; border-radius: 4px; }
-            
-            QLineEdit, QComboBox, QTextEdit { 
-                background-color: #1a1a1a; border: 1px solid #2a2a2a; 
-                color: #ddd; padding: 8px; border-radius: 6px;
-            }
-            QLineEdit:focus, QComboBox:focus, QTextEdit:focus { border: 1px solid #444; }
-            QComboBox::drop-down { border: none; background: transparent; width: 30px; }
-            QComboBox::down-arrow { image: url('%s'); width: 14px; height: 14px; }
-            QComboBox QAbstractItemView {
-                background-color: #1a1a1a;
-                color: #ddd;
-                selection-background-color: #333;
-                selection-color: #fff;
-                border: 1px solid #2a2a2a;
-            }
-            
-            QTabWidget::pane { border: none; border-top: 1px solid #222; background: transparent; }
-            QTabBar::tab { 
-                background: transparent; padding: 10px 16px; border: none; 
-                border-bottom: 2px solid transparent; color: #666; font-weight: bold; font-size: 13px;
-            }
-            QTabBar::tab:selected { color: #f0f0f0; border-bottom: 2px solid #f0f0f0; }
-            QTabBar::tab:hover { color: #aaa; }
-            QProgressBar {
-                border: none; border-radius: 2px; text-align: center;
-                background-color: #222; color: transparent; height: 4px;
-            }
-            QProgressBar::chunk { background-color: #f0f0f0; border-radius: 2px; }
-            
-            QPushButton#iconBtn {
-                background-color: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 6px; padding: 4px 8px;
-                color: #ccc;
-            }
-            QPushButton#iconBtn:hover { background-color: #3a3a3a; }
-        """ % self.chevron_dark_uri)
+        self.setStyleSheet(self._get_base_stylesheet(True))
         
         self.theme_btn.setIcon(get_icon("sun", "#ccc"))
         self.btn_dest_browse.setIcon(get_icon("plus", "#ccc"))
@@ -371,60 +402,7 @@ class MarkItDownGUI(QMainWindow):
         palette.setColor(QPalette.ButtonText, QColor(20, 20, 20))
         app.setPalette(palette)
         
-        self.setStyleSheet("""
-            QMainWindow { background-color: #ffffff; }
-            QFrame#leftPanel { background-color: #f7f7f7; border-right: 1px solid #e0e0e0; }
-            QLabel { color: #111; }
-            QLabel.sectionHeader { color: #888; font-size: 10px; font-weight: bold; letter-spacing: 1px; }
-            QPushButton { 
-                background-color: #fff; border: 1px solid #ddd; 
-                padding: 6px; border-radius: 6px; color: #333;
-            }
-            QPushButton:hover { background-color: #f0f0f0; }
-            QPushButton#primaryBtn { 
-                background-color: #111; border: none; color: #fff; font-weight: bold; font-size: 14px;
-                border-radius: 8px;
-            }
-            QPushButton#primaryBtn:hover { background-color: #333; }
-            QPushButton#clearBtn { background-color: transparent; border: none; color: #888; font-size: 10px; font-weight: bold; }
-            QPushButton#clearBtn:hover { color: #333; }
-            QPushButton#themeBtn { background-color: transparent; border: none; font-size: 16px; }
-            QPushButton#queueDelBtn:hover { background-color: #ddd; border-radius: 4px; }
-            
-            QLineEdit, QComboBox, QTextEdit { 
-                background-color: #fff; border: 1px solid #ddd; 
-                color: #111; padding: 8px; border-radius: 6px;
-            }
-            QLineEdit:focus, QComboBox:focus, QTextEdit:focus { border: 1px solid #aaa; }
-            QComboBox::drop-down { border: none; background: transparent; width: 30px; }
-            QComboBox::down-arrow { image: url('%s'); width: 14px; height: 14px; }
-            QComboBox QAbstractItemView {
-                background-color: #fff;
-                color: #111;
-                selection-background-color: #f0f0f0;
-                selection-color: #111;
-                border: 1px solid #ddd;
-            }
-            
-            QTabWidget::pane { border: none; border-top: 1px solid #ddd; background: transparent; }
-            QTabBar::tab { 
-                background: transparent; padding: 10px 16px; border: none; 
-                border-bottom: 2px solid transparent; color: #888; font-weight: bold; font-size: 13px;
-            }
-            QTabBar::tab:selected { color: #111; border-bottom: 2px solid #111; }
-            QTabBar::tab:hover { color: #555; }
-            QProgressBar {
-                border: none; border-radius: 2px; text-align: center;
-                background-color: #e0e0e0; color: transparent; height: 4px;
-            }
-            QProgressBar::chunk { background-color: #111; border-radius: 2px; }
-            
-            QPushButton#iconBtn {
-                background-color: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 4px 8px;
-                color: #555;
-            }
-            QPushButton#iconBtn:hover { background-color: #f0f0f0; }
-        """ % self.chevron_light_uri)
+        self.setStyleSheet(self._get_base_stylesheet(False))
         
         self.theme_btn.setIcon(get_icon("moon", "#333"))
         self.btn_dest_browse.setIcon(get_icon("plus", "#555"))
@@ -727,7 +705,6 @@ class MarkItDownGUI(QMainWindow):
                 clipboard = QApplication.clipboard()
                 clipboard.setText(text)
                 self.btn_copy.setText("Copied")
-                QTimer = __import__("PySide6.QtCore").QtCore.QTimer
                 QTimer.singleShot(1500, lambda: self.btn_copy.setText("Copy"))
 
     def _save_current_tab(self):
@@ -747,7 +724,6 @@ class MarkItDownGUI(QMainWindow):
                         with open(fname, 'w', encoding='utf-8') as f:
                             f.write(text)
                         self.btn_save.setText("Saved")
-                        QTimer = __import__("PySide6.QtCore").QtCore.QTimer
                         QTimer.singleShot(1500, lambda: self.btn_save.setText("Save"))
                     except Exception as e:
                         Toast(self, f"Error saving file: {e}", "error")
