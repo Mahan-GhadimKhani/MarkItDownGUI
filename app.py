@@ -740,7 +740,8 @@ class MarkItDownGUI(QMainWindow):
         if text_edit:
             text = text_edit.toPlainText()
             if text.strip():
-                fname, _ = QFileDialog.getSaveFileName(self, "Save File", "", "Markdown Files (*.md);;HTML Files (*.html);;All Files (*.*)")
+                default_name = self.tabview.tabText(idx)
+                fname, _ = QFileDialog.getSaveFileName(self, "Save File", default_name, "Markdown Files (*.md);;HTML Files (*.html);;All Files (*.*)")
                 if fname:
                     try:
                         with open(fname, 'w', encoding='utf-8') as f:
