@@ -22,31 +22,19 @@ def create_desktop_shortcut(target_exe: str, ico_path: str):
     shortcut_path = os.path.join(desktop, "MarkItDown.lnk")
 
     print(f"Creating Desktop shortcut at: {shortcut_path}")
-    try:
-        import win32com.client
-        shell = win32com.client.Dispatch("WScript.Shell")
-        shortcut = shell.CreateShortCut(shortcut_path)
-        shortcut.TargetPath = target_exe
-        shortcut.WorkingDirectory = os.path.dirname(target_exe)
-        shortcut.IconLocation = ico_path
-        shortcut.Description = "Microsoft MarkItDown Desktop Application"
-        shortcut.save()
-        print("[SUCCESS] Desktop shortcut created successfully!")
-    except Exception as e:
-        print("Using PowerShell fallback for shortcut creation...", e)
-        ps_cmd = f'''
-        $WshShell = New-Object -ComObject WScript.Shell
-        $Shortcut = $WshShell.CreateShortcut("{shortcut_path}")
-        $Shortcut.TargetPath = "{target_exe}"
-        $Shortcut.WorkingDirectory = "{os.path.dirname(target_exe)}"
-        $Shortcut.IconLocation = "{ico_path}"
-        $Shortcut.Save()
-        '''
-        res = subprocess.run(["powershell", "-Command", ps_cmd], capture_output=True, text=True)
-        if res.returncode == 0:
-            print("[SUCCESS] Desktop shortcut created via PowerShell!")
-        else:
-            print("Failed to create shortcut:", res.stderr)
+    ps_cmd = f'''
+    $WshShell = New-Object -ComObject WScript.Shell
+    $Shortcut = $WshShell.CreateShortcut("{shortcut_path}")
+    $Shortcut.TargetPath = "{target_exe}"
+    $Shortcut.WorkingDirectory = "{os.path.dirname(target_exe)}"
+    $Shortcut.IconLocation = "{ico_path}"
+    $Shortcut.Save()
+    '''
+    res = subprocess.run(["powershell", "-Command", ps_cmd], capture_output=True, text=True)
+    if res.returncode == 0:
+        print("[SUCCESS] Desktop shortcut created via PowerShell!")
+    else:
+        print("Failed to create shortcut:", res.stderr)
 
 def main():
     base_dir = os.path.dirname(os.path.abspath(__file__))

@@ -12,20 +12,8 @@ from PySide6.QtCore import Qt, Signal, QObject, QThread, QPropertyAnimation, Pro
 from PySide6.QtGui import QPalette, QColor, QFont, QGuiApplication, QClipboard, QPainter, QPainterPath
 
 from converter_engine import MarkItDownEngine
-
-SVG_ICONS = {
-    "sun": '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M17.36 17.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M17.36 6.64l1.42-1.42"/></svg>',
-    "moon": '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>',
-    "chevron-down": '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
-    "plus": '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>',
-    "file-plus": '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>',
-    "folder-plus": '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/><line x1="12" y1="10" x2="12" y2="16"/><line x1="9" y1="13" x2="15" y2="13"/></svg>',
-    "x": '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
-    "arrow-right": '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>',
-    "file-text": '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>',
-    "arrow-up-down": '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg>',
-    "copy": '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>'
-}
+import base64
+from assets import SVG_ICONS
 
 from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtCore import QByteArray
@@ -237,15 +225,10 @@ class MarkItDownGUI(QMainWindow):
         self.converted_success_files = set()
         self.preview_tab_widgets = []
         
-        import tempfile
-        self.tmp_dir = tempfile.gettempdir()
-        self.chevron_dark_path = os.path.join(self.tmp_dir, "chevron_dark.svg").replace('\\', '/')
-        self.chevron_light_path = os.path.join(self.tmp_dir, "chevron_light.svg").replace('\\', '/')
-        
-        with open(self.chevron_dark_path, "w") as f:
-            f.write(SVG_ICONS["chevron-down"].replace("currentColor", "#666"))
-        with open(self.chevron_light_path, "w") as f:
-            f.write(SVG_ICONS["chevron-down"].replace("currentColor", "#888"))
+        dark_svg = SVG_ICONS["chevron-down"].replace("currentColor", "#666")
+        light_svg = SVG_ICONS["chevron-down"].replace("currentColor", "#888")
+        self.chevron_dark_uri = "data:image/svg+xml;base64," + base64.b64encode(dark_svg.encode('utf-8')).decode('utf-8')
+        self.chevron_light_uri = "data:image/svg+xml;base64," + base64.b64encode(light_svg.encode('utf-8')).decode('utf-8')
 
         self.signals = WorkerSignals()
         self.signals.single_done.connect(self._finish_single)
@@ -322,8 +305,8 @@ class MarkItDownGUI(QMainWindow):
                 background-color: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 6px; padding: 4px 8px;
                 color: #ccc;
             }
-            QPushButton#iconBtn:hover { background-color: #252525; }
-        """ % self.chevron_dark_path)
+            QPushButton#iconBtn:hover { background-color: #3a3a3a; }
+        """ % self.chevron_dark_uri)
         
         self.theme_btn.setIcon(get_icon("sun", "#ccc"))
         self.btn_dest_browse.setIcon(get_icon("plus", "#ccc"))
@@ -396,7 +379,7 @@ class MarkItDownGUI(QMainWindow):
                 color: #555;
             }
             QPushButton#iconBtn:hover { background-color: #f0f0f0; }
-        """ % self.chevron_light_path)
+        """ % self.chevron_light_uri)
         
         self.theme_btn.setIcon(get_icon("moon", "#333"))
         self.btn_dest_browse.setIcon(get_icon("plus", "#555"))

@@ -115,22 +115,10 @@ class MarkItDownEngine:
     def format_output(markdown_text: str, fmt: str, title: str = "Converted Document") -> str:
         fmt = fmt.lower()
         if fmt == "html":
-            html_body = html.escape(markdown_text)
-            lines = html_body.split("\n")
-            html_lines = []
-            for line in lines:
-                if line.startswith("# "):
-                    html_lines.append(f"<h1>{line[2:]}</h1>")
-                elif line.startswith("## "):
-                    html_lines.append(f"<h2>{line[3:]}</h2>")
-                elif line.startswith("### "):
-                    html_lines.append(f"<h3>{line[4:]}</h3>")
-                elif line.strip():
-                    html_lines.append(f"<p>{line}</p>")
-                else:
-                    html_lines.append("<br/>")
+            import markdown
+            # Use the markdown package to safely convert to HTML, including extensions for tables if needed
+            body_content = markdown.markdown(markdown_text, extensions=['tables', 'fenced_code'])
             
-            body_content = "\n".join(html_lines)
             return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
