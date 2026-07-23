@@ -247,7 +247,7 @@ class MarkItDownGUI(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("MarkItDown")
-        self.setWindowIcon(QIcon(get_resource_path("icon.ico")))
+        self.setWindowIcon(QIcon(get_resource_path("Markitdown-Logo.ico")))
         self.resize(1100, 750)
         self.setMinimumSize(950, 650)
         
