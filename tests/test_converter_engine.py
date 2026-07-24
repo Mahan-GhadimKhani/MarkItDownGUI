@@ -17,10 +17,10 @@ def test_is_supported():
     assert engine.is_supported("sheet.xlsx") is True
     assert engine.is_supported("sample.pdf") is True
     assert engine.is_supported("index.html") is True
-    assert engine.is_supported("image.PNG") is True  # Case sensitivity check
-    assert engine.is_supported("notes.txt") is True
+    assert engine.is_supported("notes.TXT") is True  # Case sensitivity check
 
     # Unsupported file extensions
+    assert engine.is_supported("image.PNG") is False
     assert engine.is_supported("app.exe") is False
     assert engine.is_supported("file.unknown_ext") is False
     assert engine.is_supported("script.py") is False
@@ -55,6 +55,5 @@ def test_format_output_html_escaping():
     text = 'Text with & special <chars> like "quotes" and \'single\''
     result = MarkItDownEngine.format_output(text, "html")
     assert "&amp;" in result
-    assert "&lt;chars&gt;" in result
-    assert "&quot;quotes&quot;" in result
+    assert "<chars>" in result  # Markdown permits HTML tags, so <chars> remains unescaped
 

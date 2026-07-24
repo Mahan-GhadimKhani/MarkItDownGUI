@@ -6,7 +6,7 @@ A modern, fast, and feature-rich graphical user interface for converting various
 
 ## Features
 
-- **Multi-format Support**: Convert `.docx`, `.pptx`, `.xlsx`, `.pdf`, `.html`, `.csv`, `.json`, `.xml`, `.zip`, `.txt`, `.mp3`, `.wav`, `.png`, `.jpg`, and more.
+- **Multi-format Support**: Convert `.docx`, `.pptx`, `.xlsx`, `.pdf`, `.html`, `.csv`, `.json`, `.xml`, `.zip`, `.txt`, `.mp3`, `.wav`, and more.
 - **Batch Processing**: Convert entire folders or select multiple files to process them concurrently with full progress tracking.
 - **Live Preview**: Inspect converted Markdown and HTML outputs in real-time before saving them. Supports side-by-side tabs for different formats.
 - **Drag & Drop**: Simply drop files into the app to start building your conversion queue.

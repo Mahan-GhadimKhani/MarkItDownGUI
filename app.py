@@ -761,7 +761,7 @@ class MarkItDownGUI(QMainWindow):
     def browse_files(self):
         files, _ = QFileDialog.getOpenFileNames(
             self, "Select Files to Convert", "",
-            "All Supported Files (*.docx *.pptx *.xlsx *.xls *.pdf *.html *.xml *.json *.csv *.zip *.txt *.mp3 *.wav *.png *.jpg *.jpeg);;All Files (*.*)"
+            "All Supported Files (*.docx *.pptx *.xlsx *.xls *.pdf *.html *.xml *.json *.csv *.zip *.txt *.mp3 *.wav);;All Files (*.*)"
         )
         if files:
             unsupported_files = []
