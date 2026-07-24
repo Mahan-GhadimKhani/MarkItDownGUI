@@ -16,14 +16,14 @@ A modern, fast, and feature-rich graphical user interface for converting various
 ## Installation
 
 ### For End Users
-Download the latest `MarkItDown.exe` from the [Releases](#) page and run it directly. No installation required.
+COMING SOON...
 
 ### For Developers
 If you want to run the project from source or build it yourself:
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/yourusername/MarkItDownGUI.git
+   git clone https://github.com/Mahan-GhadimKhani/MarkItDownGUI.git
    cd MarkItDownGUI
    ```
 
@@ -31,8 +31,10 @@ If you want to run the project from source or build it yourself:
    ```bash
    python -m venv venv
    # On Windows
+
    venv\Scripts\activate
    # On macOS/Linux
+
    source venv/bin/activate
    
    pip install -r requirements.txt
