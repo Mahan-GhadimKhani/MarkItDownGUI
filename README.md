@@ -30,11 +30,11 @@ If you want to run the project from source or build it yourself:
 2. **Create a virtual environment and install dependencies:**
    ```bash
    python -m venv venv
+
    # On Windows
-
    venv\Scripts\activate
-   # On macOS/Linux
 
+   # On macOS/Linux
    source venv/bin/activate
    
    pip install -r requirements.txt
