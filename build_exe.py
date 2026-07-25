@@ -69,6 +69,24 @@ def main():
 
     print(f"\n[SUCCESS] Executable rebuilt at: {exe_path}")
     import shutil
+    
+    print("\nCleaning up unused bloat DLLs to reduce size...")
+    bloat_files = [
+        "opengl32sw.dll",
+        "Qt6Quick.dll",
+        "Qt6Network.dll",
+        "Qt6Qml.dll",
+        "Qt6QmlModels.dll"
+    ]
+    for bf in bloat_files:
+        bf_path = os.path.join(base_dir, "dist", "MarkItDown", "_internal", "PySide6", bf)
+        if os.path.exists(bf_path):
+            try:
+                os.remove(bf_path)
+                print(f"Removed {bf}")
+            except Exception as e:
+                pass
+
     shutil.copy2(ico_path, os.path.join(base_dir, "dist", "MarkItDown", "Markitdown-Logo.ico"))
     create_desktop_shortcut(exe_path, ico_path)
 
