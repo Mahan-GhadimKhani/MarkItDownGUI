@@ -18,11 +18,16 @@ from assets import SVG_ICONS
 from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtCore import QByteArray
 
+import re
+
 def get_icon(name, color_hex):
     svg_str = SVG_ICONS.get(name, "")
     if not svg_str:
         return QIcon()
+    
+    # Replace color
     svg_str = svg_str.replace("currentColor", color_hex)
+    
     pixmap = QPixmap()
     pixmap.loadFromData(QByteArray(svg_str.encode('utf-8')), "SVG")
     return QIcon(pixmap)
