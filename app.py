@@ -534,6 +534,8 @@ class MarkItDownGUI(QMainWindow):
             text_browser = w.findChild(QTextBrowser)
             if text_edit and text_browser:
                 text_browser.setHtml(render_markdown_to_html(text_edit.toPlainText(), self.is_dark))
+            if hasattr(w, '_update_mode_style'):
+                w._update_mode_style()
 
     def toggle_theme(self):
         if self.is_dark:
@@ -792,12 +794,19 @@ class MarkItDownGUI(QMainWindow):
 
         tab_widget = QWidget()
         layout = QVBoxLayout(tab_widget)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(4)
+        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setSpacing(0)
 
-        # Mode switcher bar (Segmented Capsule Control)
+        # Content card container that holds the toggle and the text stack together
+        content_box = QFrame()
+        content_box.setObjectName("previewContentBox")
+        box_layout = QVBoxLayout(content_box)
+        box_layout.setContentsMargins(12, 12, 12, 12)
+        box_layout.setSpacing(10)
+
+        # Mode switcher bar (Segmented Capsule Control - Preview Left, Code Right)
         mode_bar = QHBoxLayout()
-        mode_bar.setContentsMargins(12, 8, 12, 4)
+        mode_bar.setContentsMargins(0, 0, 0, 0)
         
         segmented_frame = QFrame()
         segmented_frame.setObjectName("segmentedCapsule")
@@ -805,31 +814,33 @@ class MarkItDownGUI(QMainWindow):
         seg_layout.setContentsMargins(3, 3, 3, 3)
         seg_layout.setSpacing(2)
         
+        btn_preview = QPushButton("Preview")
+        btn_preview.setCheckable(True)
+        btn_preview.setFixedSize(65, 26)
+        btn_preview.setCursor(Qt.PointingHandCursor)
+
         btn_code = QPushButton("Code")
         btn_code.setCheckable(True)
         btn_code.setFixedSize(65, 26)
         btn_code.setCursor(Qt.PointingHandCursor)
         
-        btn_preview = QPushButton("Preview")
-        btn_preview.setCheckable(True)
-        btn_preview.setFixedSize(65, 26)
-        btn_preview.setCursor(Qt.PointingHandCursor)
-        
-        seg_layout.addWidget(btn_code)
         seg_layout.addWidget(btn_preview)
+        seg_layout.addWidget(btn_code)
         
         mode_bar.addWidget(segmented_frame)
         mode_bar.addStretch()
-        layout.addLayout(mode_bar)
+        box_layout.addLayout(mode_bar)
 
         stack = QStackedWidget()
-        layout.addWidget(stack)
+        box_layout.addWidget(stack)
+        layout.addWidget(content_box)
 
         # Page 0: Raw Code Editor
         text_edit = QTextEdit()
         text_edit.setReadOnly(False)
         text_edit.setLineWrapMode(QTextEdit.NoWrap)
         text_edit.setPlainText(content)
+        text_edit.setStyleSheet("QTextEdit { border: none; background: transparent; }")
         font_c = text_edit.font()
         font_c.setFamily("Consolas")
         font_c.setPointSize(10)
@@ -840,12 +851,14 @@ class MarkItDownGUI(QMainWindow):
         # Page 1: Rendered HTML Browser
         text_browser = QTextBrowser()
         text_browser.setOpenExternalLinks(True)
+        text_browser.setStyleSheet("QTextBrowser { border: none; background: transparent; }")
         text_browser.setHtml(render_markdown_to_html(content, self.is_dark))
         stack.addWidget(text_browser)
 
         def apply_mode_style():
             is_dark = self.is_dark
             if is_dark:
+                content_box.setStyleSheet("QFrame#previewContentBox { background-color: #181818; border: 1px solid #282828; border-radius: 8px; }")
                 segmented_frame.setStyleSheet("""
                     QFrame#segmentedCapsule {
                         background-color: #222222;
@@ -876,6 +889,7 @@ class MarkItDownGUI(QMainWindow):
                     }
                 """
             else:
+                content_box.setStyleSheet("QFrame#previewContentBox { background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; }")
                 segmented_frame.setStyleSheet("""
                     QFrame#segmentedCapsule {
                         background-color: #e5e5e5;
@@ -906,18 +920,14 @@ class MarkItDownGUI(QMainWindow):
                     }
                 """
 
-            if btn_code.isChecked():
-                btn_code.setStyleSheet(active_style)
-                btn_preview.setStyleSheet(inactive_style)
-            else:
+            if btn_preview.isChecked():
                 btn_preview.setStyleSheet(active_style)
                 btn_code.setStyleSheet(inactive_style)
+            else:
+                btn_code.setStyleSheet(active_style)
+                btn_preview.setStyleSheet(inactive_style)
 
-        def show_code():
-            btn_code.setChecked(True)
-            btn_preview.setChecked(False)
-            apply_mode_style()
-            stack.setCurrentIndex(0)
+        tab_widget._update_mode_style = apply_mode_style
 
         def show_preview():
             btn_preview.setChecked(True)
@@ -927,8 +937,14 @@ class MarkItDownGUI(QMainWindow):
             text_browser.setHtml(render_markdown_to_html(current_raw, self.is_dark))
             stack.setCurrentIndex(1)
 
-        btn_code.clicked.connect(show_code)
+        def show_code():
+            btn_code.setChecked(True)
+            btn_preview.setChecked(False)
+            apply_mode_style()
+            stack.setCurrentIndex(0)
+
         btn_preview.clicked.connect(show_preview)
+        btn_code.clicked.connect(show_code)
 
         # Default mode: Preview
         show_preview()
