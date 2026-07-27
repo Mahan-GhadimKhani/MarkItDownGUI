@@ -795,22 +795,30 @@ class MarkItDownGUI(QMainWindow):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(4)
 
-        # Mode switcher bar
+        # Mode switcher bar (Segmented Capsule Control)
         mode_bar = QHBoxLayout()
-        mode_bar.setContentsMargins(10, 6, 10, 2)
+        mode_bar.setContentsMargins(12, 8, 12, 4)
+        
+        segmented_frame = QFrame()
+        segmented_frame.setObjectName("segmentedCapsule")
+        seg_layout = QHBoxLayout(segmented_frame)
+        seg_layout.setContentsMargins(3, 3, 3, 3)
+        seg_layout.setSpacing(2)
+        
+        btn_code = QPushButton("Code")
+        btn_code.setCheckable(True)
+        btn_code.setFixedSize(65, 26)
+        btn_code.setCursor(Qt.PointingHandCursor)
         
         btn_preview = QPushButton("Preview")
         btn_preview.setCheckable(True)
-        btn_preview.setFixedSize(75, 24)
+        btn_preview.setFixedSize(65, 26)
         btn_preview.setCursor(Qt.PointingHandCursor)
         
-        btn_raw = QPushButton("Raw Code")
-        btn_raw.setCheckable(True)
-        btn_raw.setFixedSize(75, 24)
-        btn_raw.setCursor(Qt.PointingHandCursor)
+        seg_layout.addWidget(btn_code)
+        seg_layout.addWidget(btn_preview)
         
-        mode_bar.addWidget(btn_preview)
-        mode_bar.addWidget(btn_raw)
+        mode_bar.addWidget(segmented_frame)
         mode_bar.addStretch()
         layout.addLayout(mode_bar)
 
@@ -836,37 +844,93 @@ class MarkItDownGUI(QMainWindow):
         stack.addWidget(text_browser)
 
         def apply_mode_style():
-            active_btn_style = "QPushButton { background-color: #007acc; color: #ffffff; border: 1px solid #007acc; border-radius: 4px; font-weight: bold; font-size: 11px; }"
-            inactive_btn_style = "QPushButton { background-color: transparent; color: #888888; border: 1px solid #444444; border-radius: 4px; font-size: 11px; } QPushButton:hover { color: #cccccc; border-color: #666666; }"
-            if not self.is_dark:
-                inactive_btn_style = "QPushButton { background-color: transparent; color: #555555; border: 1px solid #cccccc; border-radius: 4px; font-size: 11px; } QPushButton:hover { color: #111111; border-color: #999999; }"
-            
-            if btn_preview.isChecked():
-                btn_preview.setStyleSheet(active_btn_style)
-                btn_raw.setStyleSheet(inactive_btn_style)
+            is_dark = self.is_dark
+            if is_dark:
+                segmented_frame.setStyleSheet("""
+                    QFrame#segmentedCapsule {
+                        background-color: #222222;
+                        border: 1px solid #333333;
+                        border-radius: 16px;
+                    }
+                """)
+                active_style = """
+                    QPushButton {
+                        background-color: #383838;
+                        color: #ffffff;
+                        border: 1px solid #4a4a4a;
+                        border-radius: 13px;
+                        font-weight: bold;
+                        font-size: 12px;
+                    }
+                """
+                inactive_style = """
+                    QPushButton {
+                        background-color: transparent;
+                        color: #999999;
+                        border: none;
+                        border-radius: 13px;
+                        font-size: 12px;
+                    }
+                    QPushButton:hover {
+                        color: #ffffff;
+                    }
+                """
             else:
-                btn_raw.setStyleSheet(active_btn_style)
-                btn_preview.setStyleSheet(inactive_btn_style)
+                segmented_frame.setStyleSheet("""
+                    QFrame#segmentedCapsule {
+                        background-color: #e5e5e5;
+                        border: 1px solid #d0d0d0;
+                        border-radius: 16px;
+                    }
+                """)
+                active_style = """
+                    QPushButton {
+                        background-color: #ffffff;
+                        color: #111111;
+                        border: 1px solid #c0c0c0;
+                        border-radius: 13px;
+                        font-weight: bold;
+                        font-size: 12px;
+                    }
+                """
+                inactive_style = """
+                    QPushButton {
+                        background-color: transparent;
+                        color: #666666;
+                        border: none;
+                        border-radius: 13px;
+                        font-size: 12px;
+                    }
+                    QPushButton:hover {
+                        color: #111111;
+                    }
+                """
 
-        def show_preview():
-            btn_preview.setChecked(True)
-            btn_raw.setChecked(False)
-            apply_mode_style()
-            # Update HTML in case raw text was edited
-            current_raw = text_edit.toPlainText()
-            text_browser.setHtml(render_markdown_to_html(current_raw, self.is_dark))
-            stack.setCurrentIndex(1)
+            if btn_code.isChecked():
+                btn_code.setStyleSheet(active_style)
+                btn_preview.setStyleSheet(inactive_style)
+            else:
+                btn_preview.setStyleSheet(active_style)
+                btn_code.setStyleSheet(inactive_style)
 
-        def show_raw():
-            btn_raw.setChecked(True)
+        def show_code():
+            btn_code.setChecked(True)
             btn_preview.setChecked(False)
             apply_mode_style()
             stack.setCurrentIndex(0)
 
-        btn_preview.clicked.connect(show_preview)
-        btn_raw.clicked.connect(show_raw)
+        def show_preview():
+            btn_preview.setChecked(True)
+            btn_code.setChecked(False)
+            apply_mode_style()
+            current_raw = text_edit.toPlainText()
+            text_browser.setHtml(render_markdown_to_html(current_raw, self.is_dark))
+            stack.setCurrentIndex(1)
 
-        # Default mode: Preview for Markdown / HTML, Raw for text
+        btn_code.clicked.connect(show_code)
+        btn_preview.clicked.connect(show_preview)
+
+        # Default mode: Preview
         show_preview()
 
         new_idx = self.tabview.addTab(tab_widget, title_name)
