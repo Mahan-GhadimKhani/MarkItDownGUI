@@ -4,7 +4,7 @@ import threading
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QGridLayout, QLabel, QPushButton, QComboBox, QCheckBox,
-    QLineEdit, QProgressBar, QTabWidget, QTextEdit, QScrollArea,
+    QLineEdit, QProgressBar, QTabWidget, QTextEdit, QTextBrowser, QScrollArea,
     QFileDialog, QMessageBox, QFrame, QSizePolicy, QStackedWidget,
     QSpacerItem
 )
@@ -12,6 +12,7 @@ from PySide6.QtCore import Qt, Signal, QObject, QThread, QPropertyAnimation, Pro
 from PySide6.QtGui import QPalette, QColor, QFont, QGuiApplication, QClipboard, QPainter, QPainterPath
 
 from converter_engine import MarkItDownEngine
+import markdown
 import base64
 from assets import SVG_ICONS
 
@@ -31,6 +32,105 @@ def get_icon(name, color_hex):
     pixmap = QPixmap()
     pixmap.loadFromData(QByteArray(svg_str.encode('utf-8')), "SVG")
     return QIcon(pixmap)
+
+def render_markdown_to_html(md_text: str, is_dark: bool = True) -> str:
+    try:
+        if md_text.strip().lower().startswith("<!doctype html") or "<html" in md_text.lower():
+            return md_text
+        body = markdown.markdown(md_text, extensions=['tables', 'fenced_code', 'nl2br'])
+    except Exception:
+        body = f"<pre>{md_text}</pre>"
+
+    bg_color = "#181818" if is_dark else "#ffffff"
+    text_color = "#d4d4d4" if is_dark else "#24292e"
+    heading_color = "#ffffff" if is_dark else "#1a1a1a"
+    code_bg = "#252526" if is_dark else "#f6f8fa"
+    pre_bg = "#1e1e1e" if is_dark else "#f6f8fa"
+    border_color = "#333333" if is_dark else "#e1e4e8"
+    table_border = "#3c3c3c" if is_dark else "#dfe2e5"
+    table_header = "#2d2d2d" if is_dark else "#f6f8fa"
+    table_even = "#252526" if is_dark else "#f8f9fa"
+    link_color = "#3794ff" if is_dark else "#0366d6"
+    quote_color = "#858585" if is_dark else "#6a737d"
+
+    return f"""<!DOCTYPE html>
+<html dir="auto">
+<head>
+<meta charset="UTF-8">
+<style>
+    body {{
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        line-height: 1.6;
+        padding: 20px;
+        background-color: {bg_color};
+        color: {text_color};
+        unicode-bidi: plaintext;
+    }}
+    h1, h2, h3, h4, h5, h6 {{
+        color: {heading_color};
+        font-weight: 600;
+        margin-top: 20px;
+        margin-bottom: 12px;
+    }}
+    h1 {{ font-size: 1.8em; border-bottom: 1px solid {border_color}; padding-bottom: 6px; }}
+    h2 {{ font-size: 1.4em; border-bottom: 1px solid {border_color}; padding-bottom: 4px; }}
+    h3 {{ font-size: 1.2em; }}
+    p {{ margin-bottom: 12px; }}
+    code {{
+        font-family: "Consolas", "Fira Code", monospace;
+        background-color: {code_bg};
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 90%;
+        color: {text_color};
+    }}
+    pre {{
+        background-color: {pre_bg};
+        padding: 14px;
+        border-radius: 6px;
+        overflow-x: auto;
+        border: 1px solid {border_color};
+    }}
+    pre code {{
+        background-color: transparent;
+        padding: 0;
+        color: {text_color};
+    }}
+    blockquote {{
+        margin: 0 0 16px 0;
+        padding: 0 1em;
+        color: {quote_color};
+        border-left: 4px solid #007acc;
+    }}
+    table {{
+        border-collapse: collapse;
+        width: 100%;
+        margin: 16px 0;
+    }}
+    th, td {{
+        padding: 8px 12px;
+        border: 1px solid {table_border};
+    }}
+    th {{
+        background-color: {table_header};
+        font-weight: 600;
+    }}
+    tr:nth-child(even) {{
+        background-color: {table_even};
+    }}
+    a {{
+        color: {link_color};
+        text-decoration: none;
+    }}
+    a:hover {{
+        text-decoration: underline;
+    }}
+</style>
+</head>
+<body>
+{body}
+</body>
+</html>"""
 
 class WorkerSignals(QObject):
     single_done = Signal(str, str, str, bool, bool, str)
@@ -391,6 +491,8 @@ class MarkItDownGUI(QMainWindow):
         if hasattr(self, 'drop_zone'):
             self.drop_zone.update_list(self.selected_files, self.converted_success_files)
 
+        self._refresh_preview_themes()
+
     def _apply_light_theme(self):
         self.is_dark = False
         app = QApplication.instance()
@@ -422,6 +524,15 @@ class MarkItDownGUI(QMainWindow):
 
         if hasattr(self, 'drop_zone'):
             self.drop_zone.update_list(self.selected_files, self.converted_success_files)
+
+        self._refresh_preview_themes()
+
+    def _refresh_preview_themes(self):
+        for w in getattr(self, 'preview_tab_widgets', []):
+            text_edit = w.findChild(QTextEdit)
+            text_browser = w.findChild(QTextBrowser)
+            if text_edit and text_browser:
+                text_browser.setHtml(render_markdown_to_html(text_edit.toPlainText(), self.is_dark))
 
     def toggle_theme(self):
         if self.is_dark:
@@ -669,27 +780,93 @@ class MarkItDownGUI(QMainWindow):
             if self.tabview.tabText(i) == title_name:
                 widget = self.tabview.widget(i)
                 text_edit = widget.findChild(QTextEdit)
+                text_browser = widget.findChild(QTextBrowser)
                 if text_edit:
                     text_edit.setPlainText(content)
                     self._update_stats(text_edit)
+                if text_browser:
+                    text_browser.setHtml(render_markdown_to_html(content, self.is_dark))
                 self.tabview.setCurrentIndex(i)
                 return widget
 
         tab_widget = QWidget()
         layout = QVBoxLayout(tab_widget)
-        layout.setContentsMargins(0, 5, 0, 0)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+
+        # Mode switcher bar
+        mode_bar = QHBoxLayout()
+        mode_bar.setContentsMargins(10, 6, 10, 2)
         
+        btn_preview = QPushButton("Preview")
+        btn_preview.setCheckable(True)
+        btn_preview.setFixedSize(75, 24)
+        btn_preview.setCursor(Qt.PointingHandCursor)
+        
+        btn_raw = QPushButton("Raw Code")
+        btn_raw.setCheckable(True)
+        btn_raw.setFixedSize(75, 24)
+        btn_raw.setCursor(Qt.PointingHandCursor)
+        
+        mode_bar.addWidget(btn_preview)
+        mode_bar.addWidget(btn_raw)
+        mode_bar.addStretch()
+        layout.addLayout(mode_bar)
+
+        stack = QStackedWidget()
+        layout.addWidget(stack)
+
+        # Page 0: Raw Code Editor
         text_edit = QTextEdit()
         text_edit.setReadOnly(False)
         text_edit.setLineWrapMode(QTextEdit.NoWrap)
         text_edit.setPlainText(content)
-        
         font_c = text_edit.font()
         font_c.setFamily("Consolas")
         font_c.setPointSize(10)
         text_edit.setFont(font_c)
         text_edit.cursorPositionChanged.connect(self._on_text_cursor_changed)
-        layout.addWidget(text_edit)
+        stack.addWidget(text_edit)
+
+        # Page 1: Rendered HTML Browser
+        text_browser = QTextBrowser()
+        text_browser.setOpenExternalLinks(True)
+        text_browser.setHtml(render_markdown_to_html(content, self.is_dark))
+        stack.addWidget(text_browser)
+
+        def apply_mode_style():
+            active_btn_style = "QPushButton { background-color: #007acc; color: #ffffff; border: 1px solid #007acc; border-radius: 4px; font-weight: bold; font-size: 11px; }"
+            inactive_btn_style = "QPushButton { background-color: transparent; color: #888888; border: 1px solid #444444; border-radius: 4px; font-size: 11px; } QPushButton:hover { color: #cccccc; border-color: #666666; }"
+            if not self.is_dark:
+                inactive_btn_style = "QPushButton { background-color: transparent; color: #555555; border: 1px solid #cccccc; border-radius: 4px; font-size: 11px; } QPushButton:hover { color: #111111; border-color: #999999; }"
+            
+            if btn_preview.isChecked():
+                btn_preview.setStyleSheet(active_btn_style)
+                btn_raw.setStyleSheet(inactive_btn_style)
+            else:
+                btn_raw.setStyleSheet(active_btn_style)
+                btn_preview.setStyleSheet(inactive_btn_style)
+
+        def show_preview():
+            btn_preview.setChecked(True)
+            btn_raw.setChecked(False)
+            apply_mode_style()
+            # Update HTML in case raw text was edited
+            current_raw = text_edit.toPlainText()
+            text_browser.setHtml(render_markdown_to_html(current_raw, self.is_dark))
+            stack.setCurrentIndex(1)
+
+        def show_raw():
+            btn_raw.setChecked(True)
+            btn_preview.setChecked(False)
+            apply_mode_style()
+            stack.setCurrentIndex(0)
+
+        btn_preview.clicked.connect(show_preview)
+        btn_raw.clicked.connect(show_raw)
+
+        # Default mode: Preview for Markdown / HTML, Raw for text
+        show_preview()
 
         new_idx = self.tabview.addTab(tab_widget, title_name)
         self.preview_tab_widgets.append(tab_widget)
