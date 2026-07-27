@@ -121,12 +121,12 @@ class MarkItDownEngine:
             body_content = markdown.markdown(markdown_text, extensions=['tables', 'fenced_code'])
             
             return f"""<!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="auto">
 <head>
     <meta charset="UTF-8">
     <title>{title}</title>
     <style>
-        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; padding: 20px; max-width: 900px; margin: 0 auto; color: #333; }}
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; padding: 20px; max-width: 900px; margin: 0 auto; color: #333; unicode-bidi: plaintext; }}
         h1, h2, h3 {{ color: #1a1a1a; }}
         code {{ background: #f4f4f4; padding: 2px 5px; border-radius: 3px; font-family: monospace; }}
         pre {{ background: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; }}
