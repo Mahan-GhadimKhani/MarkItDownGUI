@@ -304,8 +304,9 @@ class QueueDropZoneWidget(QFrame):
                 # Delete btn
                 btn_del = QPushButton()
                 btn_del.setObjectName("queueDelBtn")
-                # Ensure we set an icon that adapts or just relies on a standard color.
-                btn_del.setIcon(get_icon("x", "#888"))
+                is_dark_theme = getattr(self.window(), 'is_dark', True)
+                x_color = "#aaa" if is_dark_theme else "#555"
+                btn_del.setIcon(get_icon("x", x_color))
                 btn_del.setFixedSize(20, 20)
                 btn_del.setCursor(Qt.PointingHandCursor)
                 btn_del.setStyleSheet("""
