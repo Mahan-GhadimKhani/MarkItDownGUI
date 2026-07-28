@@ -4,7 +4,7 @@ import threading
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QGridLayout, QLabel, QPushButton, QComboBox, QCheckBox,
-    QLineEdit, QProgressBar, QTabWidget, QTextEdit, QTextBrowser, QScrollArea,
+    QLineEdit, QProgressBar, QTabWidget, QTabBar, QTextEdit, QTextBrowser, QScrollArea,
     QFileDialog, QMessageBox, QFrame, QSizePolicy, QStackedWidget,
     QSpacerItem
 )
@@ -368,6 +368,11 @@ class MarkItDownGUI(QMainWindow):
         self.chevron_dark_uri = "data:image/svg+xml;base64," + base64.b64encode(dark_svg.encode('utf-8')).decode('utf-8')
         self.chevron_light_uri = "data:image/svg+xml;base64," + base64.b64encode(light_svg.encode('utf-8')).decode('utf-8')
 
+        dark_x_svg = SVG_ICONS["x"].replace("currentColor", "#888888")
+        light_x_svg = SVG_ICONS["x"].replace("currentColor", "#666666")
+        self.x_dark_uri = "data:image/svg+xml;base64," + base64.b64encode(dark_x_svg.encode('utf-8')).decode('utf-8')
+        self.x_light_uri = "data:image/svg+xml;base64," + base64.b64encode(light_x_svg.encode('utf-8')).decode('utf-8')
+
         self.signals = WorkerSignals()
         self.signals.single_done.connect(self._finish_single)
         self.signals.batch_progress.connect(self._update_progress_ui)
@@ -409,6 +414,7 @@ class MarkItDownGUI(QMainWindow):
         prog_chunk = "#f0f0f0" if is_dark else "#111"
         icon_hover = "#3a3a3a" if is_dark else "#f0f0f0"
         chevron_uri = self.chevron_dark_uri if is_dark else self.chevron_light_uri
+        x_uri = self.x_dark_uri if is_dark else self.x_light_uri
 
         return f"""
             QMainWindow {{ background-color: {bg}; }}
@@ -447,23 +453,22 @@ class MarkItDownGUI(QMainWindow):
             
             QTabWidget::pane {{ border: none; background: transparent; margin-top: -1px; }}
             QTabBar::tab {{ 
-                background: {tab_inactive_bg}; 
-                padding: 6px 14px 6px 14px; 
+                background: transparent; 
+                padding: 6px 24px 6px 14px; 
                 border: none; 
-                border-right: 1px solid {tab_divider}; 
-                border-top-left-radius: 8px; 
-                border-top-right-radius: 8px; 
                 color: {tab_text}; 
                 font-size: 12px;
-                margin-top: 3px;
-                margin-right: 0px;
+                margin-top: 4px;
+                margin-bottom: 0px;
+                margin-right: 3px;
             }}
             QTabBar::tab:selected {{ 
                 background-color: {card_bg}; 
                 color: {text_color}; 
                 border: 1px solid {card_border}; 
                 border-bottom: 2px solid {card_bg}; 
-                border-right: 1px solid {card_border};
+                border-top-left-radius: 8px; 
+                border-top-right-radius: 8px; 
                 font-weight: bold; 
                 margin-top: 0px;
                 margin-bottom: -1px;
@@ -471,15 +476,8 @@ class MarkItDownGUI(QMainWindow):
             QTabBar::tab:hover:!selected {{ 
                 background: {tab_hover_bg}; 
                 color: {tab_hover}; 
-            }}
-            QTabBar::close-button {{
-                subcontrol-position: right;
-                margin-left: 10px;
-                padding: 2px 4px;
-                border-radius: 4px;
-            }}
-            QTabBar::close-button:hover {{
-                background-color: {tab_close_hover};
+                border-top-left-radius: 6px;
+                border-top-right-radius: 6px;
             }}
             QProgressBar {{
                 border: none; border-radius: 2px; text-align: center;
@@ -570,6 +568,13 @@ class MarkItDownGUI(QMainWindow):
                 text_browser.setHtml(render_markdown_to_html(text_edit.toPlainText(), self.is_dark))
             if hasattr(w, '_update_mode_style'):
                 w._update_mode_style()
+
+            idx = self.tabview.indexOf(w)
+            if idx != -1:
+                btn_close = self.tabview.tabBar().tabButton(idx, QTabBar.RightSide)
+                if btn_close:
+                    close_color = "#aaaaaa" if self.is_dark else "#555555"
+                    btn_close.setIcon(get_icon("x", close_color))
 
     def toggle_theme(self):
         if self.is_dark:
@@ -811,6 +816,11 @@ class MarkItDownGUI(QMainWindow):
         if self.tabview.count() == 0:
             self.right_stack.setCurrentIndex(0)
 
+    def _close_tab_by_widget(self, widget: QWidget):
+        idx = self.tabview.indexOf(widget)
+        if idx != -1:
+            self._close_preview_tab(idx)
+
     def _add_single_preview_tab(self, title_name: str, content: str) -> QWidget:
         # If a tab with the same title already exists, just update its content
         for i in range(self.tabview.count()):
@@ -984,6 +994,21 @@ class MarkItDownGUI(QMainWindow):
         show_preview()
 
         new_idx = self.tabview.addTab(tab_widget, title_name)
+
+        # Native SVG Close button widget inside tab
+        btn_close = QPushButton()
+        btn_close.setObjectName("tabCloseBtn")
+        btn_close.setFixedSize(18, 18)
+        btn_close.setCursor(Qt.PointingHandCursor)
+        close_color = "#aaaaaa" if self.is_dark else "#555555"
+        btn_close.setIcon(get_icon("x", close_color))
+        btn_close.setStyleSheet("""
+            QPushButton { background: transparent; border: none; border-radius: 9px; padding: 2px; margin-right: 6px; }
+            QPushButton:hover { background-color: rgba(255, 255, 255, 0.2); }
+        """)
+        btn_close.clicked.connect(lambda checked=False, w=tab_widget: self._close_tab_by_widget(w))
+        self.tabview.tabBar().setTabButton(new_idx, QTabBar.RightSide, btn_close)
+
         self.preview_tab_widgets.append(tab_widget)
         self.right_stack.setCurrentIndex(1)
         self._update_stats(text_edit)
