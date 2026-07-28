@@ -397,9 +397,14 @@ class MarkItDownGUI(QMainWindow):
         input_focus = "#444" if is_dark else "#aaa"
         combo_sel_bg = "#333" if is_dark else "#f0f0f0"
         combo_sel_color = "#fff" if is_dark else "#111"
-        tab_border = "#222" if is_dark else "#ddd"
-        tab_text = "#666" if is_dark else "#888"
-        tab_hover = "#aaa" if is_dark else "#555"
+        card_bg = "#181818" if is_dark else "#ffffff"
+        card_border = "#282828" if is_dark else "#e0e0e0"
+        tab_inactive_bg = "transparent"
+        tab_divider = "rgba(255, 255, 255, 0.15)" if is_dark else "rgba(0, 0, 0, 0.15)"
+        tab_close_hover = "rgba(255, 255, 255, 0.18)" if is_dark else "rgba(0, 0, 0, 0.10)"
+        tab_hover_bg = "rgba(255, 255, 255, 0.08)" if is_dark else "rgba(0, 0, 0, 0.06)"
+        tab_text = "#888888" if is_dark else "#666666"
+        tab_hover = "#cccccc" if is_dark else "#111111"
         prog_bg = "#222" if is_dark else "#e0e0e0"
         prog_chunk = "#f0f0f0" if is_dark else "#111"
         icon_hover = "#3a3a3a" if is_dark else "#f0f0f0"
@@ -440,13 +445,42 @@ class MarkItDownGUI(QMainWindow):
                 border: 1px solid {input_border};
             }}
             
-            QTabWidget::pane {{ border: none; border-top: 1px solid {tab_border}; background: transparent; }}
+            QTabWidget::pane {{ border: none; background: transparent; margin-top: -1px; }}
             QTabBar::tab {{ 
-                background: transparent; padding: 10px 16px; border: none; 
-                border-bottom: 2px solid transparent; color: {tab_text}; font-weight: bold; font-size: 13px;
+                background: {tab_inactive_bg}; 
+                padding: 6px 14px 6px 14px; 
+                border: none; 
+                border-right: 1px solid {tab_divider}; 
+                border-top-left-radius: 8px; 
+                border-top-right-radius: 8px; 
+                color: {tab_text}; 
+                font-size: 12px;
+                margin-top: 3px;
+                margin-right: 0px;
             }}
-            QTabBar::tab:selected {{ color: {text_color}; border-bottom: 2px solid {text_color}; }}
-            QTabBar::tab:hover {{ color: {tab_hover}; }}
+            QTabBar::tab:selected {{ 
+                background-color: {card_bg}; 
+                color: {text_color}; 
+                border: 1px solid {card_border}; 
+                border-bottom: 2px solid {card_bg}; 
+                border-right: 1px solid {card_border};
+                font-weight: bold; 
+                margin-top: 0px;
+                margin-bottom: -1px;
+            }}
+            QTabBar::tab:hover:!selected {{ 
+                background: {tab_hover_bg}; 
+                color: {tab_hover}; 
+            }}
+            QTabBar::close-button {{
+                subcontrol-position: right;
+                margin-left: 10px;
+                padding: 2px 4px;
+                border-radius: 4px;
+            }}
+            QTabBar::close-button:hover {{
+                background-color: {tab_close_hover};
+            }}
             QProgressBar {{
                 border: none; border-radius: 2px; text-align: center;
                 background-color: {prog_bg}; color: transparent; height: 4px;
@@ -794,7 +828,7 @@ class MarkItDownGUI(QMainWindow):
 
         tab_widget = QWidget()
         layout = QVBoxLayout(tab_widget)
-        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
         # Content card container that holds the toggle and the text stack together
@@ -858,7 +892,7 @@ class MarkItDownGUI(QMainWindow):
         def apply_mode_style():
             is_dark = self.is_dark
             if is_dark:
-                content_box.setStyleSheet("QFrame#previewContentBox { background-color: #181818; border: 1px solid #282828; border-radius: 8px; }")
+                content_box.setStyleSheet("QFrame#previewContentBox { background-color: #181818; border: 1px solid #282828; border-top-left-radius: 0px; border-top-right-radius: 8px; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; }")
                 segmented_frame.setStyleSheet("""
                     QFrame#segmentedCapsule {
                         background-color: #222222;
@@ -889,7 +923,7 @@ class MarkItDownGUI(QMainWindow):
                     }
                 """
             else:
-                content_box.setStyleSheet("QFrame#previewContentBox { background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; }")
+                content_box.setStyleSheet("QFrame#previewContentBox { background-color: #ffffff; border: 1px solid #e0e0e0; border-top-left-radius: 0px; border-top-right-radius: 8px; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; }")
                 segmented_frame.setStyleSheet("""
                     QFrame#segmentedCapsule {
                         background-color: #e5e5e5;
