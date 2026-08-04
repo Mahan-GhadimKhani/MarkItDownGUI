@@ -8,7 +8,8 @@ A modern, fast, and feature-rich graphical user interface for converting various
 
 - **Multi-format Support**: Convert `.docx`, `.pptx`, `.xlsx`, `.pdf`, `.html`, `.csv`, `.json`, `.xml`, `.zip`, `.txt`, `.mp3`, `.wav`, and more.
 - **Batch Processing**: Convert entire folders or select multiple files to process them concurrently with full progress tracking.
-- **Live Preview**: Inspect converted Markdown and HTML outputs in real-time before saving them. Supports side-by-side tabs for different formats.
+- **Rich Markdown Preview**: Toggle seamlessly between raw Markdown code and a fully-styled, native HTML preview powered by GitHub-flavored CSS.
+- **Chrome-Style Tabs**: Modern, sleek tab navigation with seamless design and dynamic light/dark theme sync.
 - **Drag & Drop**: Simply drop files into the app to start building your conversion queue.
 - **Light & Dark Themes**: Fully polished Light and Dark modes to match your OS or preference seamlessly.
 - **Native Experience**: Native Windows executable available, no Python installation required for end users.
@@ -16,7 +17,12 @@ A modern, fast, and feature-rich graphical user interface for converting various
 ## Installation
 
 ### For End Users
-COMING SOON...
+
+You don't need to install Python or any dependencies! Just download and run the standalone executable.
+
+1. Go to the **[Releases](../../releases/latest)** page on GitHub.
+2. Download the latest `MarkItDown.exe` from the Assets section.
+3. Double-click the `.exe` file to launch the application instantly.
 
 ### For Developers
 If you want to run the project from source or build it yourself:
