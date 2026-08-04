@@ -18,11 +18,12 @@ A modern, fast, and feature-rich graphical user interface for converting various
 
 ### For End Users
 
-You don't need to install Python or any dependencies! Just download and run the standalone executable.
+You don't need to install Python or any dependencies! We offer two ways to run the app:
 
 1. Go to the **[Releases](../../releases/latest)** page on GitHub.
-2. Download the latest `MarkItDown.exe` from the Assets section.
-3. Double-click the `.exe` file to launch the application instantly.
+2. Choose the version that suits you best:
+   - **`MarkItDown-Portable.exe`**: A single, standalone file. Just download and double-click. (Note: Takes a few seconds to launch as it unpacks in the background).
+   - **`MarkItDown.zip`**: A fast-launch package. Download, extract the folder, and run the `MarkItDown.exe` inside it. Opens instantly!
 
 ### For Developers
 If you want to run the project from source or build it yourself:

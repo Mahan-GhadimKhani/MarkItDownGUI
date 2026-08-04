@@ -34,5 +34,7 @@ jobs:
       - name: Create Release and Upload Asset
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/MarkItDown.exe
+          files: |
+            dist/MarkItDown.zip
+            dist/MarkItDown-Portable.exe
           generate_release_notes: true
