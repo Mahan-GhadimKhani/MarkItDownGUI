@@ -31,8 +31,11 @@ jobs:
       - name: Build Executable with PyInstaller
         run: python build_exe.py
 
+      - name: Zip the Build Directory
+        run: Compress-Archive -Path dist/MarkItDown/* -DestinationPath MarkItDown-Windows.zip
+
       - name: Create Release and Upload Asset
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/MarkItDown/MarkItDown.exe
+          files: MarkItDown-Windows.zip
           generate_release_notes: true
