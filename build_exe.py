@@ -30,13 +30,13 @@ def main():
         return
 
     app_script = os.path.join(base_dir, "app.py")
-    exe_path = os.path.join(base_dir, "dist", "MarkItDown", "MarkItDown.exe")
+    exe_path = os.path.join(base_dir, "dist", "MarkItDown.exe")
 
-    # Rebuild PyInstaller with --onedir (instant launch) and excluding heavy unused Qt modules
+    # Rebuild PyInstaller with --onefile (single standalone executable) and excluding heavy unused Qt modules
     pyinstaller_cmd = [
         sys.executable, "-m", "PyInstaller",
         "--noconsole",
-        "--onedir",
+        "--onefile",
         "--noconfirm",
         f"--name=MarkItDown",
         f"--icon={ico_path}",
@@ -68,26 +68,9 @@ def main():
         return
 
     print(f"\n[SUCCESS] Executable rebuilt at: {exe_path}")
-    import shutil
     
-    print("\nCleaning up unused bloat DLLs to reduce size...")
-    bloat_files = [
-        "opengl32sw.dll",
-        "Qt6Quick.dll",
-        "Qt6Network.dll",
-        "Qt6Qml.dll",
-        "Qt6QmlModels.dll"
-    ]
-    for bf in bloat_files:
-        bf_path = os.path.join(base_dir, "dist", "MarkItDown", "_internal", "PySide6", bf)
-        if os.path.exists(bf_path):
-            try:
-                os.remove(bf_path)
-                print(f"Removed {bf}")
-            except Exception as e:
-                pass
-
-    shutil.copy2(ico_path, os.path.join(base_dir, "dist", "MarkItDown", "Markitdown-Logo.ico"))
+    # In --onefile mode, there is no _internal directory to clean up.
+    # Exclusions are already handled by PyInstaller flags.
     create_desktop_shortcut(exe_path, ico_path)
 
 if __name__ == "__main__":
